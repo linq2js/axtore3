@@ -1,0 +1,6 @@
+query DoSomething {
+  aaa @client {
+    id
+    name
+  }
+}
