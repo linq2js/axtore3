@@ -1,4 +1,13 @@
-import { Atom, LazyResult, Mutation, ObjectType, Query, Store } from "./types";
+import {
+  Atom,
+  LazyResult,
+  Mutation,
+  ObjectType,
+  Query,
+  Store,
+  TypeDef,
+} from "./types";
+import { DocumentNode, Kind } from "graphql";
 
 const enqueue = Promise.resolve().then.bind(Promise.resolve());
 
@@ -89,6 +98,11 @@ const debounceMicroTask = (task: VoidFunction) => {
 const delay = (ms: number = 0) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+const documentType = (value?: DocumentNode) => value?.kind === Kind.DOCUMENT;
+
+const typeDefType = (value?: TypeDef) =>
+  typeof value !== "function" && typeof value?.name === "string";
+
 export {
   getType,
   isLazy,
@@ -106,4 +120,6 @@ export {
   createProp,
   enqueue,
   debounceMicroTask,
+  documentType,
+  typeDefType,
 };

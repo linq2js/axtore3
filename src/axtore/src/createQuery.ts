@@ -22,24 +22,28 @@ import { generateName } from "./generateName";
 const createQuery = <TVariables, TData>(
   document: DocumentNode,
   typeDefs: TypeDef[],
-  options: NoInfer<CreateQueryOptions<TVariables, TData>> = {}
+  resolvers: Record<string, any> = EMPTY_RESOLVERS,
+  options: NoInfer<
+    CreateQueryOptions<TVariables, TData> & { dynamic?: boolean }
+  > = {}
 ): Query<TVariables, TData> => {
   const {
     key,
     fetchPolicy,
-    resolve: resolvers = EMPTY_RESOLVERS,
     variables: defaultVariables,
     context: defaultContext,
     evict: evictOptions,
     refetch: refetchOptions,
+    dynamic,
     equal,
   } = options;
   const connectedProp = Symbol(generateName("query", key));
   const mergeOptions: Query["mergeOptions"] = (options) => {
+    const variables = { ...defaultVariables, ...options?.variables };
     return {
       query: document,
       fetchPolicy,
-      variables: { ...defaultVariables, ...options?.variables },
+      variables: dynamic ? { input: variables } : variables,
       context: { ...defaultContext, ...options?.context },
     };
   };

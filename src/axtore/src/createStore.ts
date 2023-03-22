@@ -1,7 +1,9 @@
 import {
   BuilderContext,
   Client,
-  ObjectType,
+  Create,
+  CreateMutationOptions,
+  CreateQueryOptions,
   Store,
   TypeDef,
   gql,
@@ -14,7 +16,15 @@ import {
   OperationDefinitionNode,
   OperationTypeNode,
 } from "graphql";
-import { is, isAtom, isFunction, isQuery, isStore } from "./util";
+import {
+  documentType,
+  is,
+  isAtom,
+  isFunction,
+  isQuery,
+  isStore,
+  typeDefType,
+} from "./util";
 
 import { createAtom } from "./createAtom";
 import { createMutation } from "./createMutation";
@@ -28,23 +38,6 @@ const EMPTY_DOCUMENT_GQL = gql`
     noop
   }
 `;
-
-const createDocumentFromResolvers = (
-  type: "query" | "mutation",
-  resolverNames: string[],
-  key?: string
-) => {
-  const graphqlString = `${type} ${generateName(
-    type,
-    key
-  )} ($input: OPERATION_INPUT) { ${resolverNames
-    .map((x) => `${x}(input: $input) @client`)
-    .join(" ")} }`;
-
-  console.log(graphqlString);
-
-  return gql([graphqlString]);
-};
 
 const createStoreInternal = <TDefs>(
   document: DocumentNode,
@@ -88,75 +81,61 @@ const createStoreInternal = <TDefs>(
         return handler;
       }
 
-      if (isStore(args[0])) {
-        const mergedDefs = Object.assign(
-          {},
-          defs,
-          ...args.map((x: Store) => x.defs)
-        );
-        return createStoreInternal(document, typeDefs, mergedDefs);
-      }
+      if (isFunction(args[0])) {
+        const builder = args[0];
+        const context = createBuilderContext(
+          typeDefs,
+          (expectedOperation, operationName) => {
+            const operationDefinition = operationDefinitions.find(
+              (x) =>
+                x.operation === expectedOperation &&
+                x.name?.value === operationName
+            );
 
-      if (typeof args[0] === "string") {
-        let [operationName, def] = args;
-        let definitionName = operationName;
-
-        const nameParts = operationName.split(":");
-        // contains alias
-        if (nameParts.length > 1) {
-          [definitionName, operationName] = nameParts;
-        }
-
-        if (isFunction(def)) {
-          def = def(
-            createBuilderContext(typeDefs, (expectedOperation) => {
-              const operationDefinition = operationDefinitions.find(
-                (x) =>
-                  x.operation === expectedOperation &&
-                  x.name?.value === operationName
+            if (!operationDefinition) {
+              throw new Error(
+                `No ${expectedOperation} named '${operationName}' found`
               );
+            }
 
-              if (!operationDefinition) {
-                throw new Error(
-                  `No ${expectedOperation} named '${operationName}' found`
-                );
+            const documentNode: DocumentNode = {
+              kind: Kind.DOCUMENT,
+              definitions: [operationDefinition],
+            };
+            const documentString = JSON.stringify(documentNode);
+            const usedFragmentDefinitions: FragmentDefinitionNode[] = [];
+            fragmentDefinitions.forEach((fragmentDefinition) => {
+              const testString = `{"kind":"FragmentSpread","name":{"kind":"Name","value":"${fragmentDefinition.name.value}"}`;
+              if (documentString.includes(testString)) {
+                usedFragmentDefinitions.push(fragmentDefinition);
               }
+            });
 
-              const documentNode: DocumentNode = {
+            if (usedFragmentDefinitions.length) {
+              return {
                 kind: Kind.DOCUMENT,
-                definitions: [operationDefinition],
+                definitions: [operationDefinition, ...usedFragmentDefinitions],
               };
-              const documentString = JSON.stringify(documentNode);
-              const usedFragmentDefinitions: FragmentDefinitionNode[] = [];
-              fragmentDefinitions.forEach((fragmentDefinition) => {
-                const testString = `{"kind":"FragmentSpread","name":{"kind":"Name","value":"${fragmentDefinition.name.value}"}`;
-                if (documentString.includes(testString)) {
-                  usedFragmentDefinitions.push(fragmentDefinition);
-                }
-              });
+            }
+            return documentNode;
+          }
+        );
+        const newDefs = builder(context, defs);
 
-              if (usedFragmentDefinitions.length) {
-                return {
-                  kind: Kind.DOCUMENT,
-                  definitions: [
-                    operationDefinition,
-                    ...usedFragmentDefinitions,
-                  ],
-                };
-              }
-              return documentNode;
-            }),
-            defs
-          );
-        }
+        Object.keys(newDefs).forEach((key) => {
+          if (typeof newDefs[key] === "function") {
+            newDefs[key] = newDefs[key](key);
+          }
+        });
+
         return createStoreInternal(document, typeDefs, {
           ...defs,
-          [definitionName]: def,
+          ...newDefs,
         });
       }
 
       // use(...types)
-      if (is<TypeDef>(args[0], (x) => typeof x?.name === "string")) {
+      if (is<TypeDef>(args[0], typeDefType)) {
         return createStoreInternal(document, [...typeDefs, ...args], defs);
       }
 
@@ -199,9 +178,82 @@ const createStoreHandler = (client: Client, defs: any) => {
   );
 };
 
+const createDocumentForResolver = (
+  type: "query" | "mutation",
+  field: string,
+  key?: string
+) => {
+  const operationName = generateName(type, key);
+  const resolverName = `${operationName}${field}`;
+  return {
+    resolverName,
+    document: gql`
+    ${type}
+    ${operationName} ($input: OPERATION_INPUT) {
+      ${field}: ${resolverName}(input: $input) @client
+    }
+  `,
+  };
+};
+
+const wrapDynamicResolver = (resolver: Function) => (args: any, context: any) =>
+  resolver(args?.input, context);
+
+const createDynamicQuery = (
+  typeDefs: TypeDef[],
+  field: string,
+  resolver: Function,
+  typeDef?: TypeDef,
+  options?: CreateQueryOptions
+) => {
+  const { document, resolverName } = createDocumentForResolver(
+    "query",
+    field,
+    options?.key
+  );
+
+  return createQuery(
+    document,
+    typeDefs,
+    {
+      [resolverName]: typeDef
+        ? [wrapDynamicResolver(resolver), typeDef]
+        : wrapDynamicResolver(resolver),
+    },
+    { ...options, dynamic: true }
+  );
+};
+
+const createDynamicMutation = (
+  typeDefs: TypeDef[],
+  field: string,
+  resolver: Function,
+  typeDef?: TypeDef,
+  options?: CreateMutationOptions
+) => {
+  const { document, resolverName } = createDocumentForResolver(
+    "mutation",
+    field
+  );
+
+  return createMutation(
+    document,
+    typeDefs,
+    {
+      [resolverName]: typeDef
+        ? [wrapDynamicResolver(resolver), typeDef]
+        : wrapDynamicResolver(resolver),
+    },
+    { ...options, dynamic: true }
+  );
+};
+
 const createBuilderContext = (
   typeDefs: TypeDef[],
-  createDocument: (expectedOperation: OperationTypeNode) => DocumentNode
+  createDocument: (
+    expectedOperation: OperationTypeNode,
+    operationName: string
+  ) => DocumentNode
 ): BuilderContext => {
   return {
     changed(input: any, ...args: any[]) {
@@ -228,29 +280,168 @@ const createBuilderContext = (
         };
       };
     },
-    query(options = {}) {
-      return createQuery(
-        (options as any)["client"]
-          ? createDocumentFromResolvers(
-              "query",
-              Object.keys(options?.resolve ?? {})
-            )
-          : createDocument(OperationTypeNode.QUERY),
-        typeDefs,
-        options
-      );
+    query(...args: any[]): any {
+      // query()
+      // query(options)
+      if (!args.length || (args[0] && typeof args[0] === "object")) {
+        // we return query factory and retrieve definition prop from the store then use that prop as OperationName
+        return (prop: string) => {
+          return createQuery(
+            createDocument(OperationTypeNode.QUERY, prop),
+            typeDefs,
+            undefined,
+            args[1]
+          );
+        };
+      }
+      // query(operationName, options?)
+      // query(field, resolver, options?)
+      // query(field, resolver, typeDef, options?)
+      if (typeof args[0] === "string") {
+        // query(field, resolver, options?)
+        // query(field, resolver, typeDef, options?)
+        if (typeof args[1] === "function") {
+          // query(field, resolver, typeDef, options?)
+          if (is(args[2], typeDefType)) {
+            return createDynamicQuery(
+              typeDefs,
+              args[0],
+              args[1],
+              args[2],
+              args[3]
+            );
+          }
+          return createDynamicQuery(
+            typeDefs,
+            args[0],
+            args[1],
+            undefined,
+            args[2]
+          );
+        }
+
+        const [operationName, options] = args as [
+          string,
+          CreateQueryOptions | undefined
+        ];
+        return createQuery(
+          createDocument(OperationTypeNode.QUERY, operationName),
+          typeDefs,
+          undefined,
+          options
+        );
+      }
+
+      if (isFunction(args[0])) {
+        return (prop: string) => {
+          // query(resolver, typeDef, options?)
+          if (is(args[1], typeDefType)) {
+            return createDynamicQuery(
+              typeDefs,
+              prop,
+              args[0],
+              args[1],
+              args[2]
+            );
+          }
+          // query(resolver, options?)
+          return createDynamicQuery(
+            typeDefs,
+            prop,
+            args[0],
+            undefined,
+            args[1]
+          );
+        };
+      }
+
+      if (is(args[0], documentType)) {
+        return createQuery(args[0], typeDefs, undefined, args[1]);
+      }
+
+      throw new Error("Invalid operation");
     },
-    mutation(options = {}) {
-      return createMutation(
-        (options as any)["client"]
-          ? createDocumentFromResolvers(
-              "mutation",
-              Object.keys(options?.resolve ?? {})
-            )
-          : createDocument(OperationTypeNode.MUTATION),
-        typeDefs,
-        options
-      );
+    mutation(...args: any[]): any {
+      // mutation()
+      // mutation(options)
+      if (!args.length || (args[0] && typeof args[0] === "object")) {
+        // we return mutation factory and retrieve definition prop from the store then use that prop as OperationName
+        return (prop: string) => {
+          return createMutation(
+            createDocument(OperationTypeNode.QUERY, prop),
+            typeDefs,
+            undefined,
+            args[1]
+          );
+        };
+      }
+
+      // mutation(operationName, options?)
+      // mutation(field, resolver, options?)
+      // mutation(field, resolver, typeDef, options?)
+      if (typeof args[0] === "string") {
+        // mutation(field, resolver, options?)
+        // mutation(field, resolver, typeDef, options?)
+        if (typeof args[1] === "function") {
+          if (is(args[2], typeDefType)) {
+            return createDynamicMutation(
+              typeDefs,
+              args[0],
+              args[1],
+              args[2],
+              args[3]
+            );
+          }
+          return createDynamicMutation(
+            typeDefs,
+            args[0],
+            args[1],
+            undefined,
+            args[2]
+          );
+        }
+
+        const [operationName, options] = args as [
+          string,
+          CreateMutationOptions | undefined
+        ];
+
+        return createMutation(
+          createDocument(OperationTypeNode.QUERY, operationName),
+          typeDefs,
+          undefined,
+          options
+        );
+      }
+
+      if (isFunction(args[0])) {
+        return (prop: string) => {
+          // mutation(resolver, typeDef, options?)
+          if (is(args[1], typeDefType)) {
+            return createDynamicMutation(
+              typeDefs,
+              prop,
+              args[0],
+              args[1],
+              args[2]
+            );
+          }
+          // mutation(resolver, options?)
+          return createDynamicMutation(
+            typeDefs,
+            prop,
+            args[0],
+            undefined,
+            args[1]
+          );
+        };
+      }
+
+      if (is(args[0], documentType)) {
+        return createQuery(args[0], typeDefs, undefined, args[1]);
+      }
+
+      throw new Error("Invalid operation");
     },
     atom: createAtom,
     lazy,
@@ -258,8 +449,18 @@ const createBuilderContext = (
   };
 };
 
-const createStore = (document?: DocumentNode): Store<{}> => {
-  return createStoreInternal(document || EMPTY_DOCUMENT_GQL, [], {});
+const createStore: Create = (...args: any[]): Store<{}> => {
+  // create()
+  if (!args.length) {
+    return createStoreInternal(EMPTY_DOCUMENT_GQL, [], {});
+  }
+  // create(builder)
+  if (typeof args[0] === "function") {
+    return createStoreInternal(EMPTY_DOCUMENT_GQL, [], {}).use(args[0]);
+  }
+
+  // create(document)
+  return createStoreInternal(args[0], [], {});
 };
 
 export { createStore };

@@ -15,21 +15,25 @@ import { generateName } from "./generateName";
 const createMutation = <TVariables, TData>(
   document: DocumentNode,
   typeDefs: TypeDef[],
-  options: NoInfer<CreateMutationOptions<TVariables, TData>> = {}
+  resolvers: Record<string, any> = EMPTY_RESOLVERS,
+  options: NoInfer<
+    CreateMutationOptions<TVariables> & { dynamic?: boolean }
+  > = {}
 ): Mutation<TVariables, TData> => {
   const {
-    resolve: resolvers = EMPTY_RESOLVERS,
     variables: defaultVariables,
     context: defaultContext,
     fetchPolicy,
+    dynamic,
   } = options;
   const connectedProp = Symbol(generateName("mutation"));
 
   const mergeOptions: Mutation["mergeOptions"] = (options) => {
+    const variables = { ...defaultVariables, ...options?.variables };
     return {
       mutation: document,
       fetchPolicy,
-      variables: { ...defaultVariables, ...options?.variables },
+      variables: dynamic ? { input: variables } : variables,
       context: { ...defaultContext, ...options?.context },
     };
   };

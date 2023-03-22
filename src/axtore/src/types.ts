@@ -278,12 +278,8 @@ export type ClientOnlyResolverMap<TVariables, TData, TContext> = {
       ];
 };
 
-export type CreateQueryOptions<TVariables, TData> = {
+export type CreateQueryOptions<TVariables = any, TData = any> = {
   key?: string;
-  /**
-   * define query resolvers
-   */
-  resolve?: MixedResolverMap<TData, QueryContext>;
   context?: any;
   fetchPolicy?: FetchPolicy;
 
@@ -311,8 +307,7 @@ export type CreateQueryOptions<TVariables, TData> = {
   equal?: (prev: TData, next: TData) => boolean;
 };
 
-export type CreateMutationOptions<TVariables, TData> = {
-  resolve?: MixedResolverMap<TData, MutationContext>;
+export type CreateMutationOptions<TVariables = any> = {
   context?: any;
   fetchPolicy?: MutationFetchPolicy;
   variables?: Partial<TVariables>;
@@ -331,49 +326,104 @@ export type ResolverType<T> = {
   fields?: { [key in keyof T]?: TypeDef | QueryResolver<unknown, T[key]> };
 };
 
-export type InferQueryInput<TVariables> = TVariables extends void
+export type InferOperationInput<TVariables> = TVariables extends void
   ? void
   : { input: TVariables };
 
+export type UnknownFieldNameOperation = {
+  fieldName: null;
+};
+
 export type BuilderContext = {
   query<TVariables, TData>(
-    options: NoInfer<
-      Omit<CreateQueryOptions<TVariables, TData>, "resolve"> & {
-        client: true;
-        resolve: ClientOnlyResolverMap<
-          InferQueryInput<TVariables>,
-          TData,
-          QueryContext
-        >;
-      }
-    >
-  ): Query<InferQueryInput<TVariables>, TData>;
+    options?: CreateQueryOptions<TVariables, TData>
+  ): (name: string) => Query<TVariables, TData>;
 
   query<TVariables, TData>(
-    options?: NoInfer<CreateQueryOptions<TVariables, TData>>
+    document: DocumentNode,
+    options?: CreateQueryOptions<TVariables, TData>
   ): Query<TVariables, TData>;
+
+  /**
+   * create static query from named operation definition in the store document
+   * @param operationName
+   * @param options
+   */
+  query<TVariables, TData>(
+    operationName: string,
+    options?: CreateQueryOptions<TVariables, TData>
+  ): Query<TVariables, TData>;
+
+  query<TField extends string, TVariables, TData>(
+    field: TField,
+    resolver: Resolver<QueryContext, TVariables, TData>,
+    typeDef: TypeDef,
+    options?: CreateQueryOptions<TVariables, TData>
+  ): Query<TVariables, { [key in TField]: TData }>;
+
+  query<TField extends string, TVariables, TData>(
+    field: TField,
+    resolver: Resolver<QueryContext, TVariables, TData>,
+    options?: CreateQueryOptions<TVariables, TData>
+  ): Query<TVariables, { [key in TField]: TData }>;
+
+  query<TVariables, TData>(
+    resolver: Resolver<QueryContext, TVariables, TData>,
+    typeDef: TypeDef,
+    options?: CreateQueryOptions<TVariables, TData>
+  ): Query<TVariables, TData> & UnknownFieldNameOperation;
+
+  query<TVariables, TData>(
+    resolver: Resolver<QueryContext, TVariables, TData>,
+    options?: CreateQueryOptions<TVariables, TData>
+  ): Query<TVariables, TData> & UnknownFieldNameOperation;
+
+  mutation<TVariables, TData>(
+    options?: CreateMutationOptions<TVariables>
+  ): Mutation<TVariables, TData>;
+
+  mutation<TVariables, TData>(
+    options?: CreateMutationOptions<TVariables>
+  ): (name: string) => Mutation<TVariables, TData>;
+
+  /**
+   * create static mutation from named operation definition in the store document
+   * @param operationName
+   * @param options
+   */
+  mutation<TVariables, TData>(
+    operationName: string,
+    options?: CreateMutationOptions<TVariables>
+  ): Mutation<TVariables, TData>;
+
+  mutation<TVariables, TData>(
+    resolver: Resolver<MutationContext, TVariables, TData>,
+    options?: CreateMutationOptions<TVariables>
+  ): Mutation<TVariables, TData> & UnknownFieldNameOperation;
+
+  mutation<TVariables, TData>(
+    resolver: Resolver<MutationContext, TVariables, TData>,
+    typeDef: TypeDef,
+    options?: CreateMutationOptions<TVariables>
+  ): Mutation<TVariables, TData> & UnknownFieldNameOperation;
+
+  mutation<TField extends string, TVariables, TData>(
+    field: TField,
+    resolver: Resolver<MutationContext, TVariables, TData>,
+    typeDef: TypeDef,
+    options?: CreateMutationOptions<TVariables>
+  ): Mutation<TVariables, { [key in TField]: TData }>;
+
+  mutation<TField extends string, TVariables, TData>(
+    field: TField,
+    resolver: Resolver<MutationContext, TVariables, TData>,
+    options?: CreateMutationOptions<TVariables>
+  ): Mutation<TVariables, { [key in TField]: TData }>;
 
   atom<TData>(
     data: TData | ((context: AtomContext) => TData),
     options?: NoInfer<CreateAtomOptions<TData>>
   ): Atom<TData>;
-
-  mutation<TVariables, TData>(
-    options?: NoInfer<CreateMutationOptions<TVariables, TData>>
-  ): Mutation<TVariables, TData>;
-
-  mutation<TVariables, TData>(
-    options: NoInfer<
-      Omit<CreateMutationOptions<TVariables, TData>, "resolve"> & {
-        client: true;
-        resolve: ClientOnlyResolverMap<
-          InferQueryInput<TVariables>,
-          TData,
-          MutationContext
-        >;
-      }
-    >
-  ): Mutation<InferQueryInput<TVariables>, TData>;
 
   lazy<T>(
     value: T,
@@ -407,195 +457,50 @@ export type Listenable = (
   listener: VoidFunction
 ) => VoidFunction;
 
-export type DefinitionBuilder<TDefs, TDefinition extends WithType> = (
-  context: BuilderContext,
-  defs: TDefs
-) => TDefinition;
+export type DefinitionBuilder<
+  TDefs,
+  TDefinition extends Record<string, Atom | Query | Mutation | Function>
+> = (context: BuilderContext, defs: TDefs) => TDefinition;
+
+export type InferDefinitionType<K, T> = T extends UnknownFieldNameOperation
+  ? T extends Query<infer V, infer D>
+    ? Query<V, { [key in K & string]: D }>
+    : T extends Mutation<infer V, infer D>
+    ? Mutation<V, { [key in K & string]: D }>
+    : never
+  : T extends (name: string) => infer R
+  ? R
+  : T;
 
 export type Store<TDefs = {}> = WithType<"store"> & {
   document: DocumentNode;
   typeDefs: TypeDef[];
 
+  /**
+   * create a new store has definition which is combined from the old one and the return value of the builder
+   * @param builder
+   */
+  use<TNewDefs extends Record<string, Atom | Query | Mutation | Function>>(
+    builder: DefinitionBuilder<NoInfer<TDefs>, TNewDefs>
+  ): Store<
+    TDefs & { [key in keyof TNewDefs]: InferDefinitionType<key, TNewDefs[key]> }
+  >;
+
   use<TOtherDefs extends Record<string, Query | Mutation | Atom>>(
     defs: TOtherDefs
   ): Store<TDefs & TOtherDefs>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   */
-  use<T1>(s1: Store<T1>): Store<TDefs & T1>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   */
-  use<T1, T2>(s1: Store<T1>, s2: Store<T2>): Store<TDefs & T1 & T2>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   * @param s3
-   */
-  use<T1, T2, T3>(
-    s1: Store<T1>,
-    s2: Store<T2>,
-    s3: Store<T3>
-  ): Store<TDefs & T1 & T2 & T3>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   * @param s3
-   * @param s4
-   */
-  use<T1, T2, T3, T4>(
-    s1: Store<T1>,
-    s2: Store<T2>,
-    s3: Store<T3>,
-    s4: Store<T4>
-  ): Store<TDefs & T1 & T2 & T3 & T4>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   * @param s3
-   * @param s4
-   * @param s5
-   */
-  use<T1, T2, T3, T4, T5>(
-    s1: Store<T1>,
-    s2: Store<T2>,
-    s3: Store<T3>,
-    s4: Store<T4>,
-    s5: Store<T5>
-  ): Store<TDefs & T1 & T2 & T3 & T4 & T5>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   * @param s3
-   * @param s4
-   * @param s5
-   */
-  use<T1, T2, T3, T4, T5>(
-    s1: Store<T1>,
-    s2: Store<T2>,
-    s3: Store<T3>,
-    s4: Store<T4>,
-    s5: Store<T5>
-  ): Store<TDefs & T1 & T2 & T3 & T4 & T5>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   * @param s3
-   * @param s4
-   * @param s5
-   * @param s6
-   */
-  use<T1, T2, T3, T4, T5, T6>(
-    s1: Store<T1>,
-    s2: Store<T2>,
-    s3: Store<T3>,
-    s4: Store<T4>,
-    s5: Store<T5>,
-    s6: Store<T6>
-  ): Store<TDefs & T1 & T2 & T3 & T4 & T5 & T6>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   * @param s3
-   * @param s4
-   * @param s5
-   * @param s6
-   * @param s7
-   */
-  use<T1, T2, T3, T4, T5, T6, T7>(
-    s1: Store<T1>,
-    s2: Store<T2>,
-    s3: Store<T3>,
-    s4: Store<T4>,
-    s5: Store<T5>,
-    s6: Store<T6>,
-    s7: Store<T7>
-  ): Store<TDefs & T1 & T2 & T3 & T4 & T5 & T6 & T7>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   * @param s3
-   * @param s4
-   * @param s5
-   * @param s6
-   * @param s7
-   * @param s8
-   */
-  use<T1, T2, T3, T4, T5, T6, T7, T8>(
-    s1: Store<T1>,
-    s2: Store<T2>,
-    s3: Store<T3>,
-    s4: Store<T4>,
-    s5: Store<T5>,
-    s6: Store<T6>,
-    s7: Store<T7>,
-    s8: Store<T8>
-  ): Store<TDefs & T1 & T2 & T3 & T4 & T5 & T6 & T7 & T8>;
-
-  /**
-   * add definitions from another stores
-   * @param s1
-   * @param s2
-   * @param s3
-   * @param s4
-   * @param s5
-   * @param s6
-   * @param s7
-   * @param s8
-   * @param s9
-   */
-  use<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
-    s1: Store<T1>,
-    s2: Store<T2>,
-    s3: Store<T3>,
-    s4: Store<T4>,
-    s5: Store<T5>,
-    s6: Store<T6>,
-    s7: Store<T7>,
-    s8: Store<T8>,
-    s9: Store<T9>
-  ): Store<TDefs & T1 & T2 & T3 & T4 & T5 & T6 & T7 & T8 & T9>;
-
-  /**
-   * add type definitions / resolvers
-   * @param types
-   */
-  use(...types: TypeDef[]): Store<TDefs>;
-
-  /**
-   * add definition
-   * @param name
-   * @param definition
-   */
-  use<TName extends string, TDefinition extends WithType>(
-    name: `${TName}:${string}` | TName,
-    definition: TDefinition | DefinitionBuilder<NoInfer<TDefs>, TDefinition>
-  ): Store<TDefs & { [key in TName]: TDefinition }>;
 
   use(document: DocumentNode): Store<TDefs>;
 
   use(client: Client): StoreHandler<TDefs>;
 
   use<T>(client: Client, callback: (handler: StoreHandler<TDefs>) => T): T;
+
+  /**
+   * add type definitions / resolvers
+   * @param types
+   */
+  use(typeDef: TypeDef, ...otherTypeDefs: TypeDef[]): Store<TDefs>;
 
   defs: TDefs;
 };
@@ -630,10 +535,12 @@ export type UpdateRecipe<TData> =
       ? void
       : TData);
 
-/// test
-
 export type Create = {
+  (): Store<{}>;
   (document: DocumentNode): Store<{}>;
+  <TNewDefs extends Record<string, Atom | Query | Mutation>>(
+    builder: DefinitionBuilder<{}, TNewDefs>
+  ): Store<TNewDefs>;
 };
 
 const EMPTY_RESOLVERS = {};
