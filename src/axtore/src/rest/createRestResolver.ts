@@ -9,21 +9,23 @@ export type OptionsOrOptionsBuilder<TOptions, TVariables> =
   | ((variables: TVariables) => RestOptions);
 
 export type Rest = {
-  <TVariables = unknown>(
+  <TVariables = any, TData = any>(
     path: string,
     options?: OptionsOrOptionsBuilder<Omit<RestOptions, "path">, TVariables>
-  ): QueryResolver<unknown, TVariables>;
-  <TVariables = unknown>(
+  ): QueryResolver<TVariables, TData>;
+
+  <TVariables = any, TData = any>(
     method: string,
     path: string,
     options?: OptionsOrOptionsBuilder<
       Omit<RestOptions, "path" | "method">,
       TVariables
     >
-  ): QueryResolver<unknown, TVariables>;
-  <TVariables = unknown>(
+  ): QueryResolver<TVariables, TData>;
+
+  <TVariables = any, TData = any>(
     options: RestOptions | ((variables: TVariables) => RestOptions)
-  ): QueryResolver<unknown, TVariables>;
+  ): QueryResolver<TVariables, TData>;
 };
 
 const createOptionsBuilder = (

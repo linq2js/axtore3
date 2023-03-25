@@ -1,0 +1,21 @@
+"filename", "language", "TypeScript", "Markdown", "TypeScript JSX", "comment", "blank", "total"
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/App.tsx", "TypeScript JSX", 0, 0, 32, 2, 2, 36
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/docs/crud.md", "Markdown", 0, 69, 0, 0, 18, 87
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createMutation.ts", "TypeScript", -4, 0, 0, 0, 0, -4
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createQuery.ts", "TypeScript", -6, 0, 0, 0, 1, -5
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/index.ts", "TypeScript", 1, 0, 0, 0, 0, 1
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMutationCallback.ts", "TypeScript", 18, 0, 0, 0, 5, 23
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/resolverUtils.ts", "TypeScript", 19, 0, 0, 0, 2, 21
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/RestLink.spec.ts", "TypeScript", -4, 0, 0, 0, 0, -4
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/signals.ts", "TypeScript", 31, 0, 0, 0, 4, 35
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/test/index.ts", "TypeScript", 163, 0, 0, 0, 28, 191
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/testUtils.ts", "TypeScript", -163, 0, 0, 0, -28, -191
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/types.ts", "TypeScript", 12, 0, 0, 9, 3, 24
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/util.ts", "TypeScript", 2, 0, 0, 0, 0, 2
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/basic.ts", "TypeScript", 67, 0, 0, 1, 17, 85
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/full.ts", "TypeScript", 100, 0, 0, 7, 20, 127
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/store.advanced.ts", "TypeScript", -144, 0, 0, -7, -34, -185
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/store.ts", "TypeScript", -104, 0, 0, -1, -30, -135
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/types.ts", "TypeScript", 45, 0, 0, 0, 16, 61
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/main.tsx", "TypeScript JSX", 0, 0, -29, -2, -3, -34
+"Total", "-", 33, 69, 3, 9, 21, 135

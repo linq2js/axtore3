@@ -1,12 +1,10 @@
-import {
-  cleanFetchMocking,
-  createClient,
-  registerFetchMocking,
-} from "../testUtils";
-import { from, gql } from "@apollo/client";
+import { cleanFetchMocking, createClient, registerFetchMocking } from "../test";
 
 import { RestLink } from "./RestLink";
-import { createStore } from "../createStore";
+import { createMutation } from "../createMutation";
+import { createQuery } from "../createQuery";
+import { from } from "@apollo/client";
+import { rest } from ".";
 
 const BASE_URL = "/api";
 
@@ -17,39 +15,6 @@ type PostValueData = { postValue: { result: string } };
 
 cleanFetchMocking();
 
-const STORE_GQL = gql`
-  query GetValue {
-    getValue @client {
-      result
-    }
-  }
-
-  mutation PostValue($value: Int) {
-    postValue(value: $value) @client {
-      result
-    }
-  }
-
-  query GetValue1 {
-    getValue1 @client {
-      result
-    }
-  }
-
-  query GetValue2 {
-    getValue2 @client {
-      result
-    }
-  }
-
-  query GetValue3 {
-    getValue3 @client {
-      result
-    }
-  }
-`;
-const baseStore = createStore(STORE_GQL);
-
 describe("query", () => {
   test("GET", async () => {
     // arrange
@@ -58,14 +23,13 @@ describe("query", () => {
       mock: [(_, url) => ({ result: url })],
     });
 
-    const store = baseStore.use("GetValue", ({ query, rest }) =>
-      query<void, GetValueData>({
-        resolve: { getValue: rest("get", "/value") },
-      })
+    const GetValue = createQuery(
+      "getValue",
+      rest<void, { result: string }>("get", "/value")
     );
 
     // act
-    const result = await store.defs.GetValue.use(client).get();
+    const result = await GetValue.use(client).get();
 
     // assert
     expect(result).toEqual({ getValue: { result: `${BASE_URL}/value` } });
@@ -81,19 +45,19 @@ describe("query", () => {
       ],
     });
 
-    const store = baseStore.use("PostValue", ({ mutation, rest }) =>
-      mutation<PostValueArgs, PostValueData>({
-        resolve: {
-          postValue: rest("post", (body) => ({ path: "/value", body })),
-        },
-      })
+    const PostValue = createMutation(
+      "postValue",
+      rest<PostValueArgs, PostValueData>("post", (body) => ({
+        path: "/value",
+        body,
+      }))
     );
 
     // act
-    const r1 = await store.defs.PostValue.use(client).call({
+    const r1 = await PostValue.use(client).call({
       variables: { value: 1 },
     });
-    const r2 = await store.defs.PostValue.use(client).call({
+    const r2 = await PostValue.use(client).call({
       variables: { value: 2 },
     });
 
@@ -121,28 +85,24 @@ describe("multiple endpoints", () => {
       matcher: "v2",
     });
     const client = createClient({ link: from([api1, api2, fallback]) });
-    const store = baseStore
-      .use("GetValue1", ({ query, rest }) =>
-        query<void, { getValue1: { result: string } }>({
-          resolve: { getValue1: rest("get", "/value", { type: "v1" }) },
-        })
-      )
-      .use("GetValue2", ({ query, rest }) =>
-        query<void, { getValue2: { result: string } }>({
-          resolve: { getValue2: rest("get", "/value", { type: "v2" }) },
-        })
-      )
-      .use("GetValue3", ({ query, rest }) =>
-        query<void, { getValue3: { result: string } }>({
-          resolve: { getValue3: rest("get", "/value") },
-        })
-      );
+    const GetValue1 = createQuery(
+      "getValue1",
+      rest<void, { result: string }>("get", "/value", { type: "v1" })
+    );
+    const GetValue2 = createQuery(
+      "getValue2",
+      rest<void, { result: string }>("get", "/value", { type: "v2" })
+    );
+    const GetValue3 = createQuery(
+      "getValue3",
+      rest<void, { result: string }>("get", "/value")
+    );
 
     // act
     const [r1, r2, r3] = await Promise.all([
-      store.defs.GetValue1.use(client).get(),
-      store.defs.GetValue2.use(client).get(),
-      store.defs.GetValue3.use(client).get(),
+      GetValue1.use(client).get(),
+      GetValue2.use(client).get(),
+      GetValue3.use(client).get(),
     ]);
 
     // assert

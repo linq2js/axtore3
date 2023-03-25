@@ -1,15 +1,48 @@
 import "./App.css";
 
-import { FormEvent, useRef } from "react";
-import { Todo, store } from "./store";
-import { gql, useQuery } from "@apollo/client";
+import {
+  Add,
+  ChangeFilter,
+  Filter,
+  Filtered,
+  Login,
+  Logout,
+  Remove,
+  Toggle,
+  Token,
+  Update,
+} from "./logics/full";
+import {
+  ApolloClient,
+  ApolloProvider,
+  HttpLink,
+  InMemoryCache,
+  from,
+} from "@apollo/client";
+import { FormEvent, Suspense, useRef } from "react";
 
+import { Todo } from "./logics/types";
+import { setContext } from "@apollo/client/link/context";
 import { use } from "axtore/react";
 
 const TodoItem = (props: { todo: Todo }) => {
-  const toggle = use(store.defs.Toggle);
-  const remove = use(store.defs.Remove);
-  const loading = toggle.loading || remove.loading;
+  const toggle = use(Toggle);
+  const remove = use(Remove);
+  const update = use(Update);
+  const loading = toggle.loading || remove.loading || update.loading;
+  const handleToggle = () => {
+    toggle.mutate({ id: props.todo.id });
+  };
+  const handleEdit = () => {
+    const newTitle = prompt("Update todo title", props.todo.title);
+    if (!newTitle || newTitle === props.todo.title) return;
+    update.mutate({ id: props.todo.id, input: { title: newTitle } });
+  };
+  const handleRemove = () => {
+    const confirmMessage = `Are you sure you want to remove the todo ${props.todo.id} - ${props.todo.title}`;
+    if (!confirm(confirmMessage)) return;
+    remove.mutate({ id: props.todo.id });
+  };
 
   return (
     <div
@@ -18,19 +51,22 @@ const TodoItem = (props: { todo: Todo }) => {
         flexDirection: "row",
         columnGap: 10,
         opacity: loading ? 0.5 : 1,
+        cursor: "pointer",
       }}
     >
       <input
         type="checkbox"
         checked={props.todo.completed}
         disabled={loading}
-        onChange={() => toggle.mutate({ id: props.todo.id })}
+        onChange={handleToggle}
+        style={{ cursor: "pointer" }}
       />
+      <a onClick={handleEdit}>[edit]</a>
       <div
         style={{
           textDecoration: props.todo.completed ? "line-through" : "none",
         }}
-        onClick={() => remove.mutate({ id: props.todo.id })}
+        onClick={handleRemove}
       >
         {props.todo.id} - {props.todo.title}
       </div>
@@ -39,8 +75,8 @@ const TodoItem = (props: { todo: Todo }) => {
 };
 
 const ListFilter = () => {
-  const changeFilter = use(store.defs.ChangeFilter);
-  const filter = use(store.defs.Filter);
+  const changeFilter = use(ChangeFilter);
+  const filter = use(Filter);
 
   return (
     <div
@@ -51,20 +87,16 @@ const ListFilter = () => {
         flexDirection: "row",
       }}
     >
-      <label onClick={() => changeFilter.mutate({ input: { filter: "all" } })}>
-        <input type="radio" checked={filter === "all"} />
+      <label onClick={() => changeFilter.mutate({ filter: "all" })}>
+        <input readOnly type="radio" checked={filter === "all"} />
         All
       </label>
-      <label
-        onClick={() => changeFilter.mutate({ input: { filter: "active" } })}
-      >
-        <input type="radio" checked={filter === "active"} />
+      <label onClick={() => changeFilter.mutate({ filter: "active" })}>
+        <input readOnly type="radio" checked={filter === "active"} />
         Active
       </label>
-      <label
-        onClick={() => changeFilter.mutate({ input: { filter: "completed" } })}
-      >
-        <input type="radio" checked={filter === "completed"} />
+      <label onClick={() => changeFilter.mutate({ filter: "completed" })}>
+        <input readOnly type="radio" checked={filter === "completed"} />
         Completed
       </label>
     </div>
@@ -72,7 +104,7 @@ const ListFilter = () => {
 };
 
 const SignOutButton = () => {
-  const { mutate: signOut, loading } = use(store.defs.Logout);
+  const { mutate: signOut, loading } = use(Logout);
 
   return (
     <button disabled={loading} onClick={() => signOut()}>
@@ -82,10 +114,26 @@ const SignOutButton = () => {
 };
 
 const TodoList = () => {
-  const { filtered: todos } = use(store.defs.Filtered).wait();
+  const { filtered: todos } = use(Filtered).wait();
+  const userId = use(Token);
+  const add = use(Add);
+  const handleAdd = () => {
+    const title = prompt("Enter todo tile");
+    if (!title) return;
+    const newTodo = {
+      id: Date.now() % 0xffffffff,
+      title,
+      userId,
+      completed: false,
+    };
+    add.mutate({ input: newTodo });
+  };
 
   return (
     <>
+      <button disabled={add.loading} onClick={handleAdd}>
+        {add.loading ? "Adding..." : "Add"}
+      </button>
       {todos.map((todo) => (
         <TodoItem key={todo.id} todo={todo} />
       ))}
@@ -95,7 +143,7 @@ const TodoList = () => {
 
 const SignInForm = () => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { mutate: signIn, loading } = use(store.defs.Login);
+  const { mutate: signIn, loading } = use(Login);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -118,22 +166,14 @@ const SignInForm = () => {
 };
 
 const App = () => {
-  const userId = use(store.defs.Token);
-  const q = useQuery(
-    gql`
-      query Test {
-        test @client
-      }
-    `,
-    { variables: { a: 1, b: 2 } }
-  );
-  console.log("test", q.data);
+  const userId = use(Token);
 
   if (!userId) {
     return <SignInForm />;
   }
   return (
     <>
+      <h1>User: {userId}</h1>
       <SignOutButton />
       <ListFilter />
       <TodoList />
@@ -141,4 +181,31 @@ const App = () => {
   );
 };
 
-export default App;
+const AuthorizationLink = setContext((_, { headers }) => {
+  return {
+    headers: {
+      // keep previous headers
+      ...headers,
+      // override authorization header
+      authorization: Token.use(client).get(),
+    },
+  };
+});
+
+const client = new ApolloClient({
+  link: from([
+    AuthorizationLink,
+    new HttpLink({ uri: "http://localhost:4000/" }),
+  ]),
+  cache: new InMemoryCache(),
+});
+
+export default () => {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ApolloProvider client={client}>
+        <App />
+      </ApolloProvider>
+    </Suspense>
+  );
+};

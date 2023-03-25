@@ -8,6 +8,7 @@ import {
 import { NoInfer, Query, VariablesOptions, WithVariables } from "../types";
 import { useRef, useState } from "react";
 
+import { evictQuery } from "../resolverUtils";
 import { useStable } from "./useStable";
 
 export type UseQueryOptions<TData> = {
@@ -84,6 +85,9 @@ const useQuery = <TVariables, TData>(
           throw resultRef.current.error;
         }
         return resultRef.current.data as TData;
+      },
+      evict() {
+        evictQuery(client, query);
       },
     };
   })[0];

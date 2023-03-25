@@ -1,0 +1,46 @@
+"filename", "language", "JSON", "XML", "TypeScript", "TypeScript JSX", "PostCSS", "GraphQL", "JSON with Comments", "HTML", "JavaScript", "comment", "blank", "total"
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/index.html", "HTML", 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 1, 14
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/jest.config.js", "JavaScript", 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 1, 12
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/package.json", "JSON", 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 41
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/public/vite.svg", "XML", 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/App.css", "PostCSS", 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 4, 15
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/App.tsx", "TypeScript JSX", 0, 0, 0, 159, 0, 0, 0, 0, 0, 0, 17, 176
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/assets/react.svg", "XML", 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/atom.spec.ts", "TypeScript", 0, 0, 95, 0, 0, 0, 0, 0, 0, 1, 22, 118
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/callbackGroup.ts", "TypeScript", 0, 0, 56, 0, 0, 0, 0, 0, 0, 12, 4, 72
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createAtom.ts", "TypeScript", 0, 0, 93, 0, 0, 0, 0, 0, 0, 1, 11, 105
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createEntitySet.ts", "TypeScript", 0, 0, 61, 0, 0, 0, 0, 0, 0, 6, 7, 74
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createMutation.ts", "TypeScript", 0, 0, 135, 0, 0, 0, 0, 0, 0, 7, 17, 159
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createQuery.ts", "TypeScript", 0, 0, 225, 0, 0, 0, 0, 0, 0, 9, 24, 258
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/generateName.ts", "TypeScript", 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 4, 10
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/index.ts", "TypeScript", 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 1, 8
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/query.spec.ts", "TypeScript", 0, 0, 59, 0, 0, 0, 0, 0, 0, 0, 13, 72
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/index.ts", "TypeScript", 0, 0, 26, 0, 0, 0, 0, 0, 0, 0, 9, 35
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useAtom.ts", "TypeScript", 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 4, 12
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMultipleQueries.spec.tsx", "TypeScript JSX", 0, 0, 0, 52, 0, 0, 0, 0, 0, 0, 10, 62
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMultipleQueries.ts", "TypeScript", 0, 0, 58, 0, 0, 0, 0, 0, 0, 0, 12, 70
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMutation.spec.ts", "TypeScript", 0, 0, 37, 0, 0, 0, 0, 0, 0, 3, 8, 48
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMutation.ts", "TypeScript", 0, 0, 72, 0, 0, 0, 0, 0, 0, 1, 8, 81
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useQuery.spec.tsx", "TypeScript JSX", 0, 0, 0, 82, 0, 0, 0, 0, 0, 8, 16, 106
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useQuery.ts", "TypeScript", 0, 0, 103, 0, 0, 0, 0, 0, 0, 1, 7, 111
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useStable.ts", "TypeScript", 0, 0, 43, 0, 0, 0, 0, 0, 0, 0, 6, 49
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/resolverUtils.ts", "TypeScript", 0, 0, 589, 0, 0, 0, 0, 0, 0, 20, 82, 691
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/RestLink.spec.ts", "TypeScript", 0, 0, 91, 0, 0, 0, 0, 0, 0, 10, 17, 118
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/RestLink.ts", "TypeScript", 0, 0, 194, 0, 0, 0, 0, 0, 0, 51, 35, 280
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/createRestResolver.ts", "TypeScript", 0, 0, 76, 0, 0, 0, 0, 0, 0, 2, 11, 89
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/index.ts", "TypeScript", 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 3
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/types.ts", "TypeScript", 0, 0, 20, 0, 0, 0, 0, 0, 0, 39, 10, 69
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/signals.ts", "TypeScript", 0, 0, 68, 0, 0, 0, 0, 0, 0, 14, 15, 97
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/testUtils.ts", "TypeScript", 0, 0, 163, 0, 0, 0, 0, 0, 0, 0, 28, 191
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/types.ts", "TypeScript", 0, 0, 312, 0, 0, 0, 0, 0, 0, 33, 65, 410
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/util.ts", "TypeScript", 0, 0, 150, 0, 0, 0, 0, 0, 0, 5, 30, 185
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/index.css", "PostCSS", 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 7, 48
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/store.advanced.ts", "TypeScript", 0, 0, 144, 0, 0, 0, 0, 0, 0, 7, 34, 185
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/store.ts", "TypeScript", 0, 0, 104, 0, 0, 0, 0, 0, 0, 1, 30, 135
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/main.tsx", "TypeScript JSX", 0, 0, 0, 35, 0, 0, 0, 0, 0, 2, 6, 43
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/test.gql", "GraphQL", 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 1, 7
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/src/vite-env.d.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/tsconfig.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 20, 0, 0, 6, 0, 26
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/tsconfig.node.json", "JSON", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 10
+"/Users/ginguyen/Desktop/Projects/rms/axtore3/vite.config.ts", "TypeScript", 0, 0, 6, 0, 0, 0, 0, 0, 0, 1, 2, 9
+"Total", "-", 49, 2, 3003, 328, 52, 6, 20, 13, 11, 241, 583, 4308

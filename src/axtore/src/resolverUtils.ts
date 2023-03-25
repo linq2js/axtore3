@@ -1,8 +1,8 @@
-import { ApolloError, QueryOptions } from "@apollo/client";
 import {
   Atom,
   Client,
   EMPTY_RESOLVERS,
+  EffectContext,
   LazyResult,
   LazyResultOptions,
   Mutation,
@@ -10,14 +10,18 @@ import {
   Query,
   QueryContext,
   QueryResolver,
+  Resolver,
+  Signal,
   TypeDef,
   UpdateRecipe,
   WithVariables,
+  gql,
 } from "./types";
 import { Kind, OperationDefinitionNode } from "graphql";
 import {
   createProp,
   enqueue,
+  forEach,
   is,
   isAtom,
   isFunction,
@@ -25,12 +29,15 @@ import {
   isMutation,
 } from "./util";
 
+import { QueryOptions } from "@apollo/client";
 import { callbackGroup } from "./callbackGroup";
 import { createEntitySet } from "./createEntitySet";
+import { generateName } from "./generateName";
 import { isQuery } from "./util";
 import produce from "immer";
 
 export type Session = {
+  client: Client;
   readonly onDispose: Map<any, VoidFunction>;
   refetch(): Promise<void>;
   start(): () => boolean;
@@ -38,11 +45,13 @@ export type Session = {
 
 const registeredTypesProp = Symbol("registeredTypes");
 
+const WRAPPED_VARIABLE_NAME = "__input__";
+
 const getRegisteredTypes = (client: Client) => {
   return createProp(client, registeredTypesProp, () => new Set<string>());
 };
 
-const lazy = <T>(
+const createLazy = <T>(
   value: T,
   loader: LazyResult<T>["loader"],
   options: LazyResultOptions = {}
@@ -112,7 +121,7 @@ const addResolvers = (
         if (!typeDef.__fieldMappers) {
           typeDef.__fieldMappers = {};
         }
-        typeDef.__fieldMappers[field] = createTypeMapper(value);
+        typeDef.__fieldMappers[field] = createTypePatcher(value);
         registerType(value);
       }
     });
@@ -159,8 +168,8 @@ const addResolvers = (
   }
 };
 
-const createTypeMapper = (typeDef: TypeDef) => {
-  const assignType = (value: any) => {
+const createTypePatcher = (typeDef: TypeDef) => {
+  const patchType = (value: any) => {
     // if the value has no __typename prop, assign __typename and assign nested types recursively
     if (value && typeof value === "object" && !("__typename" in value)) {
       value = { ...value, __typename: typeDef.name };
@@ -177,9 +186,9 @@ const createTypeMapper = (typeDef: TypeDef) => {
 
   return (value: any) => {
     if (Array.isArray(value)) {
-      return value.map(assignType);
+      return value.map(patchType);
     }
-    return assignType(value);
+    return patchType(value);
   };
 };
 
@@ -187,7 +196,6 @@ const createQueryContext = (
   client: Client,
   context: any,
   self: any,
-  args: any,
   effects: Function[],
   session?: Session,
   isActive?: () => boolean,
@@ -197,8 +205,29 @@ const createQueryContext = (
     self,
     context,
     client,
-    effect(fn) {
-      effects.push(fn);
+    effect(...args: any[]) {
+      if (args.length > 1) {
+        // effect(signals, fn)
+        const [signals, fn] = args as [Signal | Signal[], Function];
+        effects.push((context: any) => {
+          const unsubscribe = callbackGroup();
+
+          // handle signal
+          forEach(signals, (signal) => {
+            unsubscribe(
+              signal(client, () => {
+                fn(context);
+              })
+            );
+          });
+
+          return unsubscribe.invokeAndClear;
+        });
+      } else {
+        // effect(fn)
+        const [fn] = args as [Function];
+        effects.push(fn);
+      }
     },
     on(input: any, callback: (data: any) => void) {
       let unsubscribe: VoidFunction | undefined;
@@ -211,19 +240,6 @@ const createQueryContext = (
       }
       session?.onDispose.set({}, unsubscribe);
       return unsubscribe;
-    },
-    call(...args: any[]) {
-      if (isMutation(args[0])) {
-        return args[0].use(client).call(args[1]);
-      }
-
-      const [resolver, newArgs] = args;
-      const hasArgs = arguments.length > 1;
-
-      if (hasArgs) {
-        return resolver(self, newArgs, queryContext);
-      }
-      return resolver(self, args, queryContext);
     },
     get(input?: Query | Atom, options?: any): any {
       if (!arguments.length && getPrevData) {
@@ -280,6 +296,7 @@ const createQueryContext = (
 const refetchQuery = async (client: Client, options: QueryOptions) => {
   const observableQuery = client.watchQuery(options);
   const result = await observableQuery.refetch();
+
   if (result.error) throw result.error;
   return result.data;
 };
@@ -313,6 +330,7 @@ const createSession = (client: Client, queryOptions: QueryOptions): Session => {
 
   return {
     refetch,
+    client,
     onDispose,
     start() {
       const callbacks = Array.from(onDispose.values());
@@ -328,7 +346,8 @@ const createSession = (client: Client, queryOptions: QueryOptions): Session => {
 const evictQuery = (
   client: Client,
   query: Query,
-  fields?: string[] | Record<string, any>
+  fields?: string[] | Record<string, any>,
+  defaultVariables?: any
 ) => {
   const op = query.document.definitions[0] as OperationDefinitionNode;
   const fieldMappings: Record<string, string> = {};
@@ -360,7 +379,7 @@ const evictQuery = (
     client.cache.evict({
       id: "ROOT_QUERY",
       fieldName: originalField,
-      args: variables === true ? {} : variables,
+      args: variables === true ? {} : variables || defaultVariables,
     });
   });
 };
@@ -384,38 +403,50 @@ const createMutationContext = (
   client: Client,
   context: any,
   self: any,
-  args: any,
   effects: Function[]
 ): MutationContext => {
+  const queryContext = createQueryContext(client, context, self, effects);
+
   return {
-    ...createQueryContext(client, context, self, args, effects),
-    set(input: any, options: any) {
+    ...queryContext,
+    identity(type, id) {
+      return client.cache.identify({ __typename: type, id });
+    },
+    call(mutation, ...args): any {
+      return mutation.use(client).call(...args);
+    },
+    set(...args: any[]) {
+      // set(type, id, fields)
+      if (typeof args[0] === "string") {
+        args = [{ __typename: args[0], id: args[1] }, args[2]];
+      }
+
       // set(atom, options)
-      if (isAtom(input)) {
-        return input.use(client).set(options);
+      if (isAtom(args[0])) {
+        return args[0].use(client).set(args[1]);
       }
 
       // set(query, options)
-      if (isQuery(input)) {
-        return input.use(client).set(options);
+      if (isQuery(args[0])) {
+        return args[0].use(client).set(args[1]);
       }
 
       // set(entities, fields)
       const [entities, fields] = args;
-      const copyOfFields: Record<string, any> = { ...fields };
-      Object.keys(copyOfFields).forEach((key) => {
-        let recipe = copyOfFields[key];
+      const normalizedFields: Record<string, any> = { ...fields };
+      Object.keys(normalizedFields).forEach((key) => {
+        let recipe = normalizedFields[key];
         if (typeof recipe !== "function") {
           const value = recipe;
           recipe = () => value;
         }
-        copyOfFields[key] = (prev: any) => produce(prev, recipe);
+        normalizedFields[key] = (prev: any) => produce(prev, recipe);
       });
 
-      (Array.isArray(entities) ? entities : [entities]).forEach((entity) => {
+      forEach(entities, (entity) => {
         client.cache.modify({
           id: client.cache.identify(entity),
-          fields: copyOfFields,
+          fields: normalizedFields,
         });
       });
     },
@@ -441,7 +472,7 @@ const createMutationContext = (
           entities.push(...args);
         }
 
-        (Array.isArray(entities) ? entities : [entities]).forEach((entity) => {
+        forEach(entities, (entity) => {
           client.cache.evict({
             id: client.cache.identify(entity),
           });
@@ -468,14 +499,16 @@ const wrapResolver = <T extends Query | Mutation>(
   const sessions = createEntitySet<Session>();
   const mapResultType = (result: any) => {
     if (typeDef) {
-      return createTypeMapper(typeDef)(result);
+      return createTypePatcher(typeDef)(result);
     }
     return result;
   };
 
   if (isQuery(owner)) {
     return async (value: any, args: any, context: any, _: any) => {
-      if (!args) args = {};
+      if (!args) {
+        args = {};
+      }
 
       const session = sessions.get(args, () =>
         createSession(client, owner.mergeOptions({ variables: args }))
@@ -488,7 +521,6 @@ const wrapResolver = <T extends Query | Mutation>(
           client,
           context,
           value,
-          args,
           effects,
           session,
           isActive,
@@ -525,7 +557,8 @@ const wrapResolver = <T extends Query | Mutation>(
           effects,
           mapResultType(lazy.value),
           session,
-          isActive
+          isActive,
+          owner
         );
       }
 
@@ -534,34 +567,52 @@ const wrapResolver = <T extends Query | Mutation>(
   }
 
   return async (value: any, args: any, context: any) => {
-    if (!args) args = {};
+    if (!args) {
+      args = {};
+    }
+
     const effects: Function[] = [];
     const result = await resolver(
       args,
-      createMutationContext(client, context, value, args, effects)
+      createMutationContext(client, context, value, effects)
     );
 
     return mapResultType(result);
   };
 };
 
+const run = <T>(client: Client, fn: (context: MutationContext) => T) => {
+  const context = createMutationContext(client, {}, {}, []);
+  return fn(context);
+};
+
 const runEffects = <T>(
   effects: Function[],
   data: T,
   session: Session,
-  isActive: () => boolean
+  isActive: () => boolean,
+  query?: Query
 ) => {
   if (isActive()) {
     enqueue(() => {
       if (!isActive()) return;
       const disposeAll = callbackGroup();
+      const context: EffectContext = {
+        data,
+        refetch: session.refetch,
+        evict(fields) {
+          if (!query) return;
+          evictQuery(session.client, query, fields);
+        },
+      };
       effects.forEach((effect) => {
-        const dispose = effect({ data, refetch: session.refetch });
+        const dispose = effect(context);
         if (isFunction(dispose)) {
           disposeAll(dispose);
         }
       });
 
+      // call effect cleanup functions whenever session is disposed
       if (disposeAll.size()) {
         session.onDispose.set({}, disposeAll.invokeAndClear);
       }
@@ -571,4 +622,91 @@ const runEffects = <T>(
   return data;
 };
 
-export { lazy, addResolvers, refetchQuery, evictQuery, getUpdatedData };
+const createDynamicDocument = (
+  type: "query" | "mutation",
+  field: string,
+  key?: string
+) => {
+  const operationName = generateName(type, key);
+  const fieldName = `${operationName}${field}`;
+  const selection = `${operationName} ($${WRAPPED_VARIABLE_NAME}: ${WRAPPED_VARIABLE_NAME}) {
+    ${field}: ${fieldName}(${WRAPPED_VARIABLE_NAME}: $${WRAPPED_VARIABLE_NAME}) @client
+  }`;
+
+  return {
+    operationName,
+    fieldName,
+    selection,
+    document: gql`
+      ${type}
+      ${selection}
+    `,
+  };
+};
+
+const executeBatch = async <TContext extends QueryContext>(
+  context: TContext,
+  variables: any,
+  targets: Record<string, Query | Mutation | Resolver<TContext>>
+) => {
+  const result: Record<string, any> = {};
+  const promises = Object.keys(targets).map((key) => {
+    const target = targets[key];
+
+    const onSuccess = (data: any) => (result[key] = data);
+
+    if (isFunction(target)) {
+      return Promise.resolve(target(variables, context)).then(onSuccess);
+    }
+
+    if (isQuery(target)) {
+      return target.use(context.client).get({ variables }).then(onSuccess);
+    }
+
+    if (isMutation(target)) {
+      return target.use(context.client).call({ variables }).then(onSuccess);
+    }
+
+    throw new Error(
+      `Invalid target. Expected Query/Mutation/Resolver but got ${target}`
+    );
+  });
+
+  await Promise.all(promises);
+
+  return result;
+};
+
+const wrapDynamicResolver = (resolver: Function) => (args: any, context: any) =>
+  resolver(unwrapVariables(args), context);
+
+const isMappedVariables = (variables: any) =>
+  variables &&
+  typeof variables === "object" &&
+  WRAPPED_VARIABLE_NAME in variables;
+
+const unwrapVariables = (variables: any) => {
+  return isMappedVariables(variables)
+    ? variables[WRAPPED_VARIABLE_NAME]
+    : variables;
+};
+
+const wrapVariables = (dynamic: boolean | undefined, variables: any) => {
+  if (!dynamic || isMappedVariables(variables)) return variables;
+  return { [WRAPPED_VARIABLE_NAME]: variables };
+};
+
+export {
+  createLazy,
+  addResolvers,
+  refetchQuery,
+  evictQuery,
+  getUpdatedData,
+  createDynamicDocument,
+  wrapDynamicResolver,
+  unwrapVariables,
+  wrapVariables,
+  executeBatch,
+  createTypePatcher,
+  run,
+};

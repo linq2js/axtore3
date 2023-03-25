@@ -9,10 +9,10 @@ import {
 } from "@apollo/client";
 import { FetchMockStatic, MockRequest } from "fetch-mock";
 import { PropsWithChildren, createElement } from "react";
-import { RestLink, RestLinkOptions } from "./rest/RestLink";
-import { delay, isFunction } from "./util";
+import { RestLink, RestLinkOptions } from "../rest/RestLink";
+import { delay, isFunction } from "../util";
 
-import { Client } from "./types";
+import { Client } from "../types";
 import fetch from "cross-fetch";
 
 const fetchMock = require("fetch-mock") as FetchMockStatic;

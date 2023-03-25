@@ -1,12 +1,12 @@
-import { createClient, createWrapper, enableAsyncTesting } from "../testUtils";
+import { createClient, createWrapper, enableAsyncTesting } from "../test";
 
-import { createStore } from "../createStore";
+import { createMutation } from "../createMutation";
 import { delay } from "../util";
 import { gql } from "../types";
 import { renderHook } from "@testing-library/react-hooks";
 import { useMutation } from "./useMutation";
 
-const STORE_GQL = gql`
+const DOC = gql`
   mutation Update($value: Int) {
     update(value: $value) {
       result
@@ -14,9 +14,9 @@ const STORE_GQL = gql`
   }
 `;
 
-const baseStore = createStore(STORE_GQL).use("Update", ({ mutation }) =>
-  mutation<{ value: number }, { result: number }>()
-);
+const Update = createMutation<{ value: number }, { result: number }>(DOC, {
+  operation: "Update",
+});
 
 enableAsyncTesting();
 
@@ -32,9 +32,7 @@ describe("normal mutation", () => {
     });
     const wrapper = createWrapper(client);
     const useTest = () => {
-      return useMutation(baseStore.defs.Update, {
-        variables: { value: 1 },
-      });
+      return useMutation(Update);
     };
 
     // act
@@ -42,7 +40,7 @@ describe("normal mutation", () => {
 
     // assert
     expect(result.current.data).toBeUndefined();
-    result.current.mutate();
+    result.current.mutate({ value: 1 });
     await delay(20);
     expect(result.current.data).toEqual({ update: { result: 1 } });
   });

@@ -1,0 +1,93 @@
+Date : 2023-03-24 20:13:35
+Directory : /Users/ginguyen/Desktop/Projects/rms/axtore3
+Total : 47 files,  3589 codes, 250 comments, 604 blanks, all 4443 lines
+
+Languages
++--------------------+------------+------------+------------+------------+------------+
+| language           | files      | code       | comment    | blank      | total      |
++--------------------+------------+------------+------------+------------+------------+
+| TypeScript         |         32 |      3,036 |        234 |        522 |      3,792 |
+| TypeScript JSX     |          4 |        331 |         10 |         48 |        389 |
+| Markdown           |          1 |         69 |          0 |         18 |         87 |
+| PostCSS            |          2 |         52 |          0 |         11 |         63 |
+| JSON               |          2 |         49 |          0 |          2 |         51 |
+| JSON with Comments |          1 |         20 |          6 |          0 |         26 |
+| HTML               |          1 |         13 |          0 |          1 |         14 |
+| JavaScript         |          1 |         11 |          0 |          1 |         12 |
+| GraphQL            |          1 |          6 |          0 |          1 |          7 |
+| XML                |          2 |          2 |          0 |          0 |          2 |
++--------------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                          | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                             |         47 |      3,589 |        250 |        604 |      4,443 |
+| . (Files)                                                                                     |          6 |         99 |          7 |          6 |        112 |
+| public                                                                                        |          1 |          1 |          0 |          0 |          1 |
+| src                                                                                           |         40 |      3,489 |        243 |        598 |      4,330 |
+| src (Files)                                                                                   |          6 |        255 |          3 |         35 |        293 |
+| src/assets                                                                                    |          1 |          1 |          0 |          0 |          1 |
+| src/axtore                                                                                    |         30 |      3,021 |        232 |        510 |      3,763 |
+| src/axtore/docs                                                                               |          1 |         69 |          0 |         18 |         87 |
+| src/axtore/src                                                                                |         29 |      2,952 |        232 |        492 |      3,676 |
+| src/axtore/src (Files)                                                                        |         13 |      1,910 |        117 |        305 |      2,332 |
+| src/axtore/src/react                                                                          |         10 |        500 |         13 |         85 |        598 |
+| src/axtore/src/rest                                                                           |          5 |        379 |        102 |         74 |        555 |
+| src/axtore/src/test                                                                           |          1 |        163 |          0 |         28 |        191 |
+| src/logics                                                                                    |          3 |        212 |          8 |         53 |        273 |
++-----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| filename                                                                                      | language           | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/index.html                                       | HTML               |         13 |          0 |          1 |         14 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/jest.config.js                                   | JavaScript         |         11 |          0 |          1 |         12 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/package.json                                     | JSON               |         40 |          0 |          1 |         41 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/public/vite.svg                                  | XML                |          1 |          0 |          0 |          1 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/App.css                                      | PostCSS            |         11 |          0 |          4 |         15 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/App.tsx                                      | TypeScript JSX     |        191 |          2 |         19 |        212 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/assets/react.svg                             | XML                |          1 |          0 |          0 |          1 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/docs/crud.md                          | Markdown           |         69 |          0 |         18 |         87 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/atom.spec.ts                      | TypeScript         |         95 |          1 |         22 |        118 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/callbackGroup.ts                  | TypeScript         |         56 |         12 |          4 |         72 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createAtom.ts                     | TypeScript         |         93 |          1 |         11 |        105 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createEntitySet.ts                | TypeScript         |         61 |          6 |          7 |         74 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createMutation.ts                 | TypeScript         |        131 |          7 |         17 |        155 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/createQuery.ts                    | TypeScript         |        219 |          9 |         25 |        253 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/generateName.ts                   | TypeScript         |          6 |          0 |          4 |         10 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/index.ts                          | TypeScript         |          7 |          0 |          1 |          8 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/query.spec.ts                     | TypeScript         |         59 |          0 |         13 |         72 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/index.ts                    | TypeScript         |         27 |          0 |          9 |         36 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useAtom.ts                  | TypeScript         |          8 |          0 |          4 |         12 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMultipleQueries.spec.tsx | TypeScript JSX     |         52 |          0 |         10 |         62 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMultipleQueries.ts       | TypeScript         |         58 |          0 |         12 |         70 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMutation.spec.ts         | TypeScript         |         37 |          3 |          8 |         48 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMutation.ts              | TypeScript         |         72 |          1 |          8 |         81 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useMutationCallback.ts      | TypeScript         |         18 |          0 |          5 |         23 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useQuery.spec.tsx           | TypeScript JSX     |         82 |          8 |         16 |        106 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useQuery.ts                 | TypeScript         |        103 |          1 |          7 |        111 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/react/useStable.ts                | TypeScript         |         43 |          0 |          6 |         49 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/resolverUtils.ts                  | TypeScript         |        608 |         20 |         84 |        712 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/RestLink.spec.ts             | TypeScript         |         87 |         10 |         17 |        114 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/RestLink.ts                  | TypeScript         |        194 |         51 |         35 |        280 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/createRestResolver.ts        | TypeScript         |         76 |          2 |         11 |         89 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/index.ts                     | TypeScript         |          2 |          0 |          1 |          3 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/rest/types.ts                     | TypeScript         |         20 |         39 |         10 |         69 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/signals.ts                        | TypeScript         |         99 |         14 |         19 |        132 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/test/index.ts                     | TypeScript         |        163 |          0 |         28 |        191 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/types.ts                          | TypeScript         |        324 |         42 |         68 |        434 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/axtore/src/util.ts                           | TypeScript         |        152 |          5 |         30 |        187 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/index.css                                    | PostCSS            |         41 |          0 |          7 |         48 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/basic.ts                              | TypeScript         |         67 |          1 |         17 |         85 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/full.ts                               | TypeScript         |        100 |          7 |         20 |        127 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/logics/types.ts                              | TypeScript         |         45 |          0 |         16 |         61 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/main.tsx                                     | TypeScript JSX     |          6 |          0 |          3 |          9 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/test.gql                                     | GraphQL            |          6 |          0 |          1 |          7 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/src/vite-env.d.ts                                | TypeScript         |          0 |          1 |          1 |          2 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/tsconfig.json                                    | JSON with Comments |         20 |          6 |          0 |         26 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/tsconfig.node.json                               | JSON               |          9 |          0 |          1 |         10 |
+| /Users/ginguyen/Desktop/Projects/rms/axtore3/vite.config.ts                                   | TypeScript         |          6 |          1 |          2 |          9 |
+| Total                                                                                         |                    |      3,589 |        250 |        604 |      4,443 |
++-----------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+

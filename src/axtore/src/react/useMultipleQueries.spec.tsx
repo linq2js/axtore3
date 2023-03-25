@@ -1,8 +1,8 @@
 import { Optional, gql } from "../types";
 import React, { Suspense } from "react";
-import { createClient, createWrapper, enableAsyncTesting } from "../testUtils";
+import { createClient, createWrapper, enableAsyncTesting } from "../test";
 
-import { createStore } from "../createStore";
+import { createQuery } from "../createQuery";
 import { delay } from "../util";
 import { render } from "@testing-library/react";
 import { useMultipleQueries } from "./useMultipleQueries";
@@ -12,8 +12,6 @@ const STORE_GQL = gql`
     value(value: $value, factor: $factor)
   }
 `;
-
-const baseStore = createStore(STORE_GQL);
 
 type GetValueVariables = { value: number; factor: number };
 type GetValueData = { value: number };
@@ -26,23 +24,20 @@ describe("multiple queries", () => {
       mock: [({ value, factor }) => ({ value: value * factor })],
       delay: 5,
     });
-    const store = baseStore
-      .use("GetValue1:GetValue", ({ query }) =>
-        query<Optional<GetValueVariables, "value">, GetValueData>({
-          variables: { value: 1 },
-        })
-      )
-      .use("GetValue2:GetValue", ({ query }) =>
-        query<Optional<GetValueVariables, "value">, GetValueData>({
-          variables: { value: 2 },
-        })
-      );
+    const GetValue1 = createQuery<
+      Optional<GetValueVariables, "value">,
+      GetValueData
+    >(STORE_GQL, { operation: "GetValue", variables: { value: 1 } });
+    const GetValue2 = createQuery<
+      Optional<GetValueVariables, "value">,
+      GetValueData
+    >(STORE_GQL, { operation: "GetValue", variables: { value: 2 } });
 
     const Wrapper = createWrapper(client);
 
     const App = () => {
       const data = useMultipleQueries(
-        { q1: store.defs.GetValue1, q2: store.defs.GetValue2 },
+        { q1: GetValue1, q2: GetValue2 },
         {
           q1: { variables: { factor: 2 } },
           q2: { variables: { factor: 4 } },

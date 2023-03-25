@@ -7,21 +7,22 @@ import {
   gql,
 } from "./types";
 import { createProp, isFunction } from "./util";
+import { createTypePatcher, getUpdatedData } from "./resolverUtils";
 
 import { callbackGroup } from "./callbackGroup";
 import { generateName } from "./generateName";
-import { getUpdatedData } from "./resolverUtils";
 import { makeVar } from "@apollo/client";
 
 const createAtom = <TData>(
   data: TData | ((context: AtomContext) => TData),
   options: NoInfer<CreateAtomOptions<TData>> = {}
 ): Atom<TData> => {
-  const { key, equal = Object.is } = options;
+  const { key, equal = Object.is, type } = options;
   const hasKey = !!key;
   const propName = generateName("atom", key);
   const connectedProp = Symbol(propName);
   const document = gql`query ${propName} { ${propName} }`;
+  const typePatcher = type ? createTypePatcher(type) : undefined;
 
   return {
     type: "atom",
@@ -66,7 +67,13 @@ const createAtom = <TData>(
         reactiveVar.onNextChange(changeListener);
         const setData = (data: any) => {
           if (equal(data, reactiveVar())) return;
+
+          if (typePatcher) {
+            data = typePatcher(data);
+          }
+
           reactiveVar(data);
+
           if (hasKey) {
             client.writeQuery({
               query: document,

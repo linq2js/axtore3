@@ -4,10 +4,16 @@ import {
   Mutation,
   ObjectType,
   Query,
-  Store,
   TypeDef,
 } from "./types";
-import { DocumentNode, Kind } from "graphql";
+import {
+  DefinitionNode,
+  DocumentNode,
+  FragmentDefinitionNode,
+  Kind,
+  OperationDefinitionNode,
+  OperationTypeNode,
+} from "graphql";
 
 const enqueue = Promise.resolve().then.bind(Promise.resolve());
 
@@ -17,17 +23,13 @@ const getType = (obj: any): ObjectType | "unknown" => {
   return type;
 };
 
-const isQuery = <TVariables = any, TData = any>(
+const isQuery = <TVariables = {} | undefined, TData = any>(
   obj: any
 ): obj is Query<TVariables, TData> => {
   return getType(obj) === "query";
 };
 
-const isStore = <TDefs>(obj: any): obj is Store<TDefs> => {
-  return getType(obj) === "store";
-};
-
-const isMutation = <TVariables = any, TData = any>(
+const isMutation = <TVariables = {} | undefined, TData = any>(
   obj: any
 ): obj is Mutation<TVariables, TData> => {
   return getType(obj) === "mutation";
@@ -103,6 +105,64 @@ const documentType = (value?: DocumentNode) => value?.kind === Kind.DOCUMENT;
 const typeDefType = (value?: TypeDef) =>
   typeof value !== "function" && typeof value?.name === "string";
 
+const selectDefinition = (
+  source: DocumentNode,
+  type: OperationTypeNode,
+  name: string
+): DocumentNode => {
+  const operationDefinitions: OperationDefinitionNode[] = [];
+  const otherDefinitions: DefinitionNode[] = [];
+  const fragmentDefinitions: FragmentDefinitionNode[] = [];
+
+  source.definitions.forEach((definitionNode) => {
+    if (definitionNode.kind === Kind.OPERATION_DEFINITION) {
+      operationDefinitions.push(definitionNode);
+    } else if (definitionNode.kind === Kind.FRAGMENT_DEFINITION) {
+      fragmentDefinitions.push(definitionNode);
+    } else {
+      otherDefinitions.push(definitionNode);
+    }
+  });
+
+  const operationDefinition = operationDefinitions.find(
+    (x) => x.operation === type && x.name?.value === name
+  );
+
+  if (!operationDefinition) {
+    throw new Error(`No ${type} named '${name}' found`);
+  }
+
+  const documentNode: DocumentNode = {
+    kind: Kind.DOCUMENT,
+    definitions: [operationDefinition],
+  };
+  const documentString = JSON.stringify(documentNode);
+  const usedFragmentDefinitions: FragmentDefinitionNode[] = [];
+
+  fragmentDefinitions.forEach((fragmentDefinition) => {
+    const testString = `{"kind":"FragmentSpread","name":{"kind":"Name","value":"${fragmentDefinition.name.value}"}`;
+    if (documentString.includes(testString)) {
+      usedFragmentDefinitions.push(fragmentDefinition);
+    }
+  });
+
+  if (usedFragmentDefinitions.length) {
+    return {
+      kind: Kind.DOCUMENT,
+      definitions: [operationDefinition, ...usedFragmentDefinitions],
+    };
+  }
+
+  return documentNode;
+};
+
+const forEach = <T>(
+  values: T | T[],
+  callback: (value: T, index: number) => void
+) => {
+  return (Array.isArray(values) ? values : [values]).forEach(callback);
+};
+
 export {
   getType,
   isLazy,
@@ -111,7 +171,6 @@ export {
   isAtom,
   isPromiseLike,
   isFunction,
-  isStore,
   noop,
   deferIf,
   is,
@@ -122,4 +181,6 @@ export {
   debounceMicroTask,
   documentType,
   typeDefType,
+  selectDefinition,
+  forEach,
 };

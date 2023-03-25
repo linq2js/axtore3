@@ -1,25 +1,68 @@
 import {
+  CreateDynamicQueryOptions,
   CreateQueryOptions,
+  CreateStaticQueryOptions,
   EMPTY_RESOLVERS,
   NoInfer,
   Query,
   QueryHandler,
+  QueryResolver,
   TypeDef,
   WithVariables,
 } from "./types";
+import { DocumentNode, OperationTypeNode } from "graphql";
 import {
   addResolvers,
+  createDynamicDocument,
   evictQuery,
   getUpdatedData,
   refetchQuery,
+  unwrapVariables,
+  wrapDynamicResolver,
+  wrapVariables,
 } from "./resolverUtils";
-import { createProp, isFunction } from "./util";
+import {
+  createProp,
+  documentType,
+  forEach,
+  is,
+  isFunction,
+  selectDefinition,
+} from "./util";
 
-import { DocumentNode } from "graphql";
 import { callbackGroup } from "./callbackGroup";
 import { generateName } from "./generateName";
 
-const createQuery = <TVariables, TData>(
+export type CreateQuery = {
+  /**
+   * create static query
+   */
+  <TVariables = any, TData = any>(
+    document: DocumentNode,
+    options?: CreateStaticQueryOptions<TVariables, TData>
+  ): Query<TVariables, TData>;
+
+  /**
+   * create dynamic query
+   */
+  <TField extends string, TVariables = any, TData = any>(
+    field: TField,
+    resolver: QueryResolver<TVariables, TData>,
+    options?: CreateDynamicQueryOptions<TVariables, TData>
+  ): Query<TVariables, { [key in TField]: TData }>;
+
+  <TVariables = any, TData = any>(
+    queries: {
+      [key in keyof TData]:
+        | Query<TVariables, TData[key]>
+        | QueryResolver<TVariables, TData[key]>
+        | DocumentNode;
+    },
+    options?: CreateQueryOptions<TVariables, TData>
+  ): Query<TVariables, TData>;
+};
+
+const createQueryInternal = <TVariables = any, TData = any>(
   document: DocumentNode,
   typeDefs: TypeDef[],
   resolvers: Record<string, any> = EMPTY_RESOLVERS,
@@ -39,11 +82,14 @@ const createQuery = <TVariables, TData>(
   } = options;
   const connectedProp = Symbol(generateName("query", key));
   const mergeOptions: Query["mergeOptions"] = (options) => {
-    const variables = { ...defaultVariables, ...options?.variables };
+    const variables = {
+      ...defaultVariables,
+      ...unwrapVariables(options?.variables),
+    };
     return {
       query: document,
       fetchPolicy,
-      variables: dynamic ? { input: variables } : variables,
+      variables: wrapVariables(dynamic, variables),
       context: { ...defaultContext, ...options?.context },
     };
   };
@@ -52,6 +98,7 @@ const createQuery = <TVariables, TData>(
     type: "query" as const,
     document,
     mergeOptions,
+    dynamic: !!dynamic,
     use(client) {
       return createProp(
         client,
@@ -66,7 +113,7 @@ const createQuery = <TVariables, TData>(
             const doEvicting = () => {
               evictQuery(client, query, fields);
             };
-            (Array.isArray(when) ? when : [when]).forEach((listenable) => {
+            forEach(when, (listenable) => {
               removeListener(listenable(client, doEvicting));
             });
           }
@@ -78,7 +125,7 @@ const createQuery = <TVariables, TData>(
               refetchQuery(client, { ...mergeOptions({ variables }) });
             };
 
-            (Array.isArray(when) ? when : [when]).forEach((listenable) => {
+            forEach(when, (listenable) => {
               listenable(client, doRefetching);
             });
           }
@@ -153,6 +200,53 @@ const createQuery = <TVariables, TData>(
   };
 
   return query;
+};
+
+const createQuery: CreateQuery = (...args: any[]) => {
+  // query(field, resolver, options?)
+  if (typeof args[0] === "string") {
+    const [field, resolver, options] = args as [
+      string,
+      Function,
+      CreateDynamicQueryOptions | undefined
+    ];
+
+    const { fieldName, document } = createDynamicDocument(
+      "query",
+      field,
+      options?.key
+    );
+
+    return createQueryInternal(
+      document,
+      [],
+      {
+        [fieldName]: options?.type
+          ? [wrapDynamicResolver(resolver), options?.type]
+          : wrapDynamicResolver(resolver),
+      },
+      { ...options, dynamic: true }
+    );
+  }
+
+  if (is(args[0], documentType)) {
+    // query(document, options?)
+    const [document, options] = args as [
+      DocumentNode,
+      CreateStaticQueryOptions | undefined
+    ];
+
+    return createQueryInternal(
+      options?.operation
+        ? selectDefinition(document, OperationTypeNode.QUERY, options.operation)
+        : document,
+      options?.types ?? [],
+      options?.resolve,
+      options
+    );
+  }
+
+  throw new Error(`No overload for these arguments ${args} supported`);
 };
 
 export { createQuery };

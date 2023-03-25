@@ -1,14 +1,14 @@
 import React, { Suspense } from "react";
-import { createClient, createWrapper, enableAsyncTesting } from "../testUtils";
+import { createClient, createWrapper, enableAsyncTesting } from "../test";
 
-import { createStore } from "../createStore";
+import { createQuery } from "../createQuery";
 import { delay } from "../util";
 import { gql } from "../types";
 import { render } from "@testing-library/react";
 import { renderHook } from "@testing-library/react-hooks";
 import { useQuery } from "./useQuery";
 
-const STORE_GQL = gql`
+const DOC = gql`
   query GetValue($value: Int) {
     getValue(value: $value)
   }
@@ -17,9 +17,9 @@ const STORE_GQL = gql`
 type GetValueVariables = { value: number };
 type GetValueData = { getValue: number };
 
-const baseStore = createStore(STORE_GQL).use("GetValue", ({ query }) =>
-  query<GetValueVariables, GetValueData>()
-);
+const GetValue = createQuery<GetValueVariables, GetValueData>(DOC, {
+  operation: "GetValue",
+});
 
 enableAsyncTesting();
 
@@ -32,7 +32,7 @@ describe("normal query", () => {
     });
     const wrapper = createWrapper(client);
     const useTest = () => {
-      const r = useQuery(baseStore.defs.GetValue, { variables: { value: 1 } });
+      const r = useQuery(GetValue, { variables: { value: 1 } });
       return r.loading ? null : r.data;
     };
 
@@ -54,7 +54,7 @@ describe("normal query", () => {
     });
     const wrapper = createWrapper(client);
     const useTest = () => {
-      return useQuery(baseStore.defs.GetValue, { variables: { value: 1 } });
+      return useQuery(GetValue, { variables: { value: 1 } });
     };
 
     // act
@@ -82,7 +82,7 @@ describe("suspense and error boundary", () => {
 
     const Wrapper = createWrapper(client);
     const App = () => {
-      const d = useQuery(baseStore.defs.GetValue, {
+      const d = useQuery(GetValue, {
         variables: { value: 1 },
       }).wait();
       return <div data-testid="value">{d.getValue}</div>;
