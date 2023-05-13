@@ -1,0 +1,9 @@
+query UserPostList {
+  posts {
+    id
+    title
+    body
+    userId
+    createdOn
+  }
+}

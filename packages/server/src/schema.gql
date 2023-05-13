@@ -1,0 +1,56 @@
+scalar Void
+
+type User {
+  id: Int!
+  name: String!
+  email: String!
+}
+
+type Post {
+  id: Int!
+  userId: Int!
+  title: String!
+  body: String!
+  createdOn: Float!
+}
+
+type Comment {
+  postId: Int!
+  id: Int!
+  name: String!
+  email: String!
+  body: String!
+  createdOn: Float!
+}
+
+input AddCommentInput {
+  postId: Int!
+  id: Int!
+  name: String!
+  email: String!
+  body: String!
+}
+
+input AddPostInput {
+  id: Int!
+  title: String!
+  body: String!
+}
+
+type Query {
+  profile: User!
+  posts: [Post!]!
+  comments(postId: Int): [Comment!]!
+  latestPosts(limit: Int): [Post!]!
+  latestComments(limit: Int): [Comment!]!
+}
+
+type AddResult {
+  post: Post
+  comment: Comment
+}
+
+type Mutation {
+  add(comment: AddCommentInput, post: AddPostInput): AddResult!
+  remove(commentId: Int, postId: Int): Void
+}
