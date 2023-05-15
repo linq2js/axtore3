@@ -653,7 +653,11 @@ const createStateDispatcher = <TData>(
   );
 };
 
-const getObservableQuery = (client: Client, query: Query, variables: any) => {
+const getObservableQuery = (
+  client: Client,
+  query: Query,
+  variables: any = {}
+) => {
   return getSessionManager(
     client,
     query.document,
@@ -681,7 +685,7 @@ const subscribeQueryChangeEvent = (
   return () => subscription.unsubscribe();
 };
 
-const evictQuery = (client: Client, query: Query, variables: any) => {
+const evictQuery = (client: Client, query: Query, variables: any = {}) => {
   const options = query.mergeOptions({ variables });
   const data = client.readQuery(options);
   if (data) {
@@ -735,9 +739,9 @@ const createQueryDispatcher = <TVariables, TData>(
                   const qi = getDerivedQuery();
                   if (getContextData?.()?.[ENABLE_HARD_REFETCH]) {
                     evictQuery(client, qi.query, variables);
-                    qi.observable.result();
                     return;
                   }
+
                   qi.observable.refetch();
                 }
               },
@@ -788,7 +792,7 @@ const createQueryDispatcher = <TVariables, TData>(
         const oq = getObservableQuery(client, query, variables);
         return oq.getLastResult()?.data;
       },
-      async set(recipe: any, variables: any) {
+      async set(recipe: any, variables: any = {}) {
         const options = query.mergeOptions({ variables });
         let updatedData: any;
 
@@ -919,6 +923,7 @@ const createContext = (
                       return;
                     }
                     qi.observable.refetch();
+                    console.log("vars", qi.observable.variables);
                   }))
             );
             resolvedProps.set(p, dispatcher);
@@ -950,9 +955,13 @@ const unwrapVariables = (variables: any) => {
     : variables;
 };
 
-const wrapVariables = (dynamic: boolean | undefined, variables: any) => {
+const wrapVariables = (dynamic: boolean | undefined, variables: any = {}) => {
+  const hasKey = Object.keys(variables).length > 0;
+  if (!hasKey) {
+    variables = undefined;
+  }
   if (!dynamic || isMappedVariables(variables)) return variables;
-  return { [WRAPPED_VARIABLE_NAME]: variables || {} };
+  return { [WRAPPED_VARIABLE_NAME]: variables };
 };
 
 const patchLocalFields = (

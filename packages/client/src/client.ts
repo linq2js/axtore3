@@ -28,7 +28,7 @@ const client = new ApolloClient({
           "https://jsonplaceholder.typicode.com/posts"
         ).then((res) => res.json());
 
-        return posts.filter((x: any) => x.body.indexOf(args.term) !== -1);
+        return posts.filter((x: any) => x.title.indexOf(args.term) !== -1);
       },
     },
   },

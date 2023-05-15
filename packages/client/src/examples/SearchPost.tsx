@@ -25,7 +25,7 @@ const appModel = model()
     // `postList` query depends on `term` state that means if `term` state changed, the postList query does data re-fetching as well
     // by default the query will do soft refresh (fetching new data in background, the UI still render previous data)
     // by using `hardRefresh` extras we force the query clean up its data before doing data fetching
-    use(hardRefresh);
+    use(hardRefresh); // remove this line to see soft refresh effect
 
     // delay execution in 500ms to make loading effect
     await delay(500);
