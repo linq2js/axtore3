@@ -1,10 +1,9 @@
 import { createClient, createWrapper, enableAsyncTesting } from "../test";
 
-import { createMutation } from "../createMutation";
-import { delay } from "../util";
-import { gql } from "../types";
+import { delay, typed, gql } from "../util";
 import { renderHook } from "@testing-library/react-hooks";
-import { useMutation } from "./useMutation";
+import { createModel } from "../createModel";
+import { createHooks } from "./createHooks";
 
 const DOC = gql`
   mutation Update($value: Int) {
@@ -14,9 +13,11 @@ const DOC = gql`
   }
 `;
 
-const Update = createMutation<{ value: number }, { result: number }>(DOC, {
-  operation: "Update",
-});
+const model = createModel().mutation(
+  "update",
+  typed<{ value: number }, { result: number }>(DOC)
+);
+const { useUpdate } = createHooks(model.meta);
 
 enableAsyncTesting();
 
@@ -32,7 +33,7 @@ describe("normal mutation", () => {
     });
     const wrapper = createWrapper(client);
     const useTest = () => {
-      return useMutation(Update);
+      return useUpdate();
     };
 
     // act

@@ -1,7 +1,7 @@
 import {
   ApolloContext,
-  AtomContext,
-  Atom,
+  StateContext,
+  State,
   Client,
   CreateModel,
   CustomContextFactory,
@@ -13,23 +13,46 @@ import {
   QueryOptions,
   RootResolver,
   UpdateRecipe,
-} from "./types2";
-import { DocumentNode } from "graphql";
+  Effect,
+  MutationOptions,
+} from "./types";
+import {
+  DocumentNode,
+  Kind,
+  ObjectValueNode,
+  OperationDefinitionNode,
+  visit,
+} from "graphql";
 import {
   ApolloQueryResult,
-  FetchPolicy,
   FetchResult,
   makeVar,
   ObservableQuery,
 } from "@apollo/client";
-import { createProp, isAtom, isMutation, isQuery } from "./util";
+import {
+  createProp,
+  isState,
+  isMutation,
+  isQuery,
+  untilSubscriptionNotifyingDone,
+} from "./util";
 
-import equal from "@wry/equality";
 import { generateName } from "./generateName";
 import gql from "graphql-tag";
-import { mergeDeep } from "@apollo/client/utilities";
+import { getQueryDefinition, mergeDeep } from "@apollo/client/utilities";
 import { CallbackGroup, callbackGroup } from "./callbackGroup";
 import produce from "immer";
+import { getData } from "./getData";
+
+type FieldMappings = Record<
+  string,
+  Record<string, { field: string; type?: string }>
+>;
+
+type QueryInfo = {
+  query: Query;
+  observable: ObservableQuery;
+};
 
 const createQuery = <TVariables, TData>(
   model: Model<any, any>,
@@ -45,11 +68,18 @@ const createQuery = <TVariables, TData>(
     document,
     resolver,
     dataType,
+    mergeOptions(newOptions) {
+      return {
+        ...newOptions,
+        query: document,
+        variables: wrapVariables(!!resolver, newOptions?.variables),
+      };
+    },
   };
 };
 
-const createMutation = <TVariables, TData>(
-  model: Model,
+const createMutation = <TContext, TMeta, TVariables, TData>(
+  model: Model<TContext, TMeta>,
   name: string,
   document: DocumentNode,
   resolver?: RootResolver<any, TVariables, TData>,
@@ -62,22 +92,31 @@ const createMutation = <TVariables, TData>(
     document,
     resolver,
     dataType,
+    mergeOptions(newOptions) {
+      return {
+        ...newOptions,
+        mutation: document,
+        variables: wrapVariables(!!resolver, newOptions?.variables),
+      };
+    },
   };
 };
 
-const createAtom = <TData>(
-  model: Model,
-  initial: TData | ((context: AtomContext<any, any>) => TData),
+const createState = <TContext, TMeta, TData>(
+  model: Model<TContext, TMeta>,
+  initial: TData | ((context: StateContext<any, any>) => TData),
   name?: string
-): Atom<TData> => {
-  const id = generateName("atom", name);
+): State<TData> => {
+  const id = generateName("state", name);
   return {
-    type: "atom",
+    type: "state",
     name: id,
     model,
     initial,
   };
 };
+
+const ENABLE_HARD_REFETCH = Symbol("hardRefetch");
 
 const WRAPPED_VARIABLE_NAME = "__VARS__";
 
@@ -116,9 +155,11 @@ const patchTypeIfPossible = <T>(data: T, typeName?: string): T => {
 
 const createModelInternal = <TContext, TMeta extends Record<string, any>>(
   modelOptions: ModelOptions<TContext>,
-  meta: TMeta = {} as any
+  meta: TMeta = {} as any,
+  effects: Effect<TContext, TMeta>[] = [],
+  fieldMappings: FieldMappings = {}
 ): Model<TContext, TMeta> => {
-  const modelId = generateName("model");
+  const modelId = Symbol("model");
   const contextFactory: CustomContextFactory<TContext> =
     typeof modelOptions.context === "function"
       ? (modelOptions.context as CustomContextFactory<TContext>)
@@ -131,12 +172,13 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
     }
 
     (client as any)[modelId] = true;
+
     let resolvers: any = {};
     let hasNewResolver = false;
 
     Object.entries(meta).forEach(([typeName, value]) => {
-      // do nothing with atom
-      if (isAtom(value)) {
+      // do nothing with state
+      if (isState(value)) {
         return;
       }
 
@@ -168,7 +210,12 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
                 session,
                 meta,
                 false,
-                () => sessionManager.observableQuery
+                () => ({
+                  query: value,
+                  observable: sessionManager.observableQuery,
+                }),
+                undefined,
+                () => sessionManager.data
               );
               const data = await value.resolver?.(args, context);
               sessionManager.onLoad.invokeAndClear();
@@ -200,7 +247,17 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
             ) => {
               args = unwrapVariables(args);
               const session = getSessionManager(client, false).start();
-              const context = createContext(apolloContext, session, meta, true);
+              const context = createContext(
+                apolloContext,
+                session,
+                meta,
+                true,
+                undefined,
+                undefined,
+                () =>
+                  // create simple data object for mutation
+                  getData(client, value, {}, (_, key) => ({ key }))
+              );
               const data = await value.resolver?.(args, context);
               if (value.dataType) {
                 return patchTypeIfPossible(data, value.dataType);
@@ -236,8 +293,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
                   apolloContext,
                   session,
                   meta,
-                  false,
-                  () => session.manager.observableQuery
+                  false
                 );
                 return resolver(value, args, context);
               },
@@ -250,20 +306,45 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
     if (hasNewResolver) {
       client.addResolvers(resolvers);
     }
+
+    // execute effects
+    if (effects.length) {
+      call(client, (context: any) => {
+        // make sure do not run an effect twice
+        new Set(effects).forEach((effect) => effect(context));
+      });
+    }
   };
 
-  const call = (
-    originalContext: ApolloContext,
-    action: Function,
-    ...args: any[]
+  const extend = (
+    prop: string,
+    metaItem: any,
+    newFieldMappings?: FieldMappings
   ) => {
-    init(originalContext.client);
+    const newModel = createModelInternal(
+      modelOptions,
+      {
+        ...meta,
+        [prop]: metaItem,
+      },
+      effects,
+      newFieldMappings
+        ? mergeDeep(fieldMappings, newFieldMappings)
+        : fieldMappings
+    );
+    Object.assign(metaItem, { model: newModel });
+    return newModel;
+  };
+
+  const call = (client: Client, action: Function, ...args: any[]) => {
+    init(client);
+
     const context = createContext(
       {
-        ...originalContext,
-        ...contextFactory(originalContext),
+        client,
+        ...contextFactory({ client }),
       },
-      getSessionManager(originalContext.client).start(),
+      getSessionManager(client).start(),
       meta,
       true
     );
@@ -272,36 +353,51 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
 
   const model: Model<TContext, TMeta> = {
     meta,
+    effects,
     init,
     use(newMeta) {
-      return createModelInternal(modelOptions, { ...meta, ...newMeta });
+      return createModelInternal(
+        modelOptions,
+        { ...meta, ...newMeta },
+        effects as any,
+        fieldMappings
+      );
     },
     query(selection: string, ...args: any[]) {
       const [alias, name = alias] = selection.split(":");
       let document: DocumentNode;
       let resolver: RootResolver<TContext, any, any> | undefined;
       let options: QueryOptions | undefined;
-
+      let newFieldMappings: FieldMappings | undefined;
       // is resolver
       if (typeof args[0] === "function") {
         document = createDynamicDocument("query", name, alias);
         resolver = args[0];
         options = args[1];
+        newFieldMappings = {
+          ROOT: {
+            [alias]: {
+              field: name,
+              type: options?.type,
+            },
+          },
+        };
       } else {
-        document = args[0];
+        document = patchLocalFields(args[0], fieldMappings);
         options = args[1];
       }
       const { type } = options ?? {};
-      const query = createQuery(model, name, document, resolver, type);
-      const newModel = createModelInternal(modelOptions, {
-        ...meta,
-        [alias]: query,
-      });
-      Object.assign(query, { model: newModel });
-      return newModel;
+      return extend(
+        alias,
+        createQuery(model, name, document, resolver, type),
+        newFieldMappings
+      );
     },
     mutation(selection, ...args: any[]) {
       const [alias, name = alias] = selection.split(":");
+      let options: MutationOptions | undefined;
+      let newFieldMappings: FieldMappings | undefined;
+
       let document: DocumentNode;
       let resolver: RootResolver<TContext, any, any> | undefined;
 
@@ -309,46 +405,66 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
       if (typeof args[0] === "function") {
         document = createDynamicDocument("mutation", name, alias);
         resolver = args[0];
+        options = args[1];
+        newFieldMappings = {
+          ROOT: {
+            [alias]: {
+              field: name,
+              type: options?.type,
+            },
+          },
+        };
       } else {
-        document = args[0];
+        document = patchLocalFields(args[0], fieldMappings);
       }
-      const mutation = createMutation(model, name, document, resolver);
-      const newModel = createModelInternal(modelOptions, {
-        ...meta,
-        [alias]: mutation,
-      });
-      Object.assign(mutation, { model: newModel });
-      return newModel;
+      return extend(
+        alias,
+        createMutation(model, name, document, resolver),
+        fieldMappings
+      );
     },
-    atom(name, initial, options) {
-      const atom = createAtom(model, initial, options?.name);
-      const newModel = createModelInternal(modelOptions, {
-        ...meta,
-        [name]: atom,
-      });
-      Object.assign(atom, { model: newModel });
-      return newModel;
+    state(name, initial, options) {
+      return extend(name, createState(model, initial, options?.name));
+    },
+    effect(...newEffects) {
+      effects.push(...newEffects);
+      return this;
     },
     type(name, resolvers) {
       const resolverWrappers: Function[] = [];
+      const newFieldMappings: FieldMappings = {};
 
       const newModel = createModelInternal(
         modelOptions,
         mergeDeep(meta, {
           // assign model
-          [name]: Object.entries(resolvers).reduce((prev, [key, resolver]) => {
-            const resolverWrapper = (
-              ...args: Parameters<FieldResolver<any, any>>
-            ) => {
-              return resolver(...args);
+          [name]: Object.entries(resolvers).reduce((prev, [key, value]) => {
+            const [dataType, resolver] = Array.isArray(value)
+              ? value
+              : [undefined, value];
+
+            newFieldMappings[name] = {
+              ...newFieldMappings[name],
+              [key]: { field: key, type: dataType },
             };
+
+            const resolverWrapper = Object.assign(
+              async (...args: Parameters<FieldResolver<any, any>>) => {
+                const result = await resolver(...args);
+                return patchTypeIfPossible(result, dataType);
+              },
+              { dataType }
+            );
+
             resolverWrappers.push(resolverWrapper);
             return {
               ...prev,
               [key]: resolverWrapper,
             };
           }, {}),
-        })
+        }),
+        effects,
+        mergeDeep(fieldMappings, newFieldMappings)
       );
 
       resolverWrappers.forEach((x) => Object.assign(x, { model: newModel }));
@@ -363,61 +479,54 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
 
 type SessionManager = {
   readonly key: any;
+  /**
+   * this uses for query session only
+   */
   readonly observableQuery: ObservableQuery;
+  readonly data: any;
   start(): Session;
   onLoad: CallbackGroup;
   onDispose: CallbackGroup;
+  evict(): void;
   refetch(): Promise<ApolloQueryResult<any>>;
 };
 
 type Session = {
   readonly isActive: boolean;
   readonly manager: SessionManager;
-
-  /**
-   * this uses for query session only
-   */
 };
 
 const getSessionManager = (client: Client, group: any = {}, key: any = {}) => {
-  const sessionManagerGroups = createProp(
-    client,
-    "sessionManagerGroups",
-    () => new WeakMap<any, SessionManager[]>()
-  );
-
-  let sessionManagerGroup = group ? sessionManagerGroups.get(group) : undefined;
-
-  if (group && !sessionManagerGroup) {
-    sessionManagerGroup = [];
-    sessionManagerGroups.set(group, sessionManagerGroup);
-  }
-
-  let sessionManager = sessionManagerGroup?.find((x) => equal(x.key, key));
-
-  if (!sessionManager) {
+  return getData(client, group, key, () => {
     let currentToken = {};
+    const data = {};
     const onDispose = callbackGroup();
     const onLoad = callbackGroup();
     let observableQuery: ObservableQuery | undefined;
 
-    const sm = {
+    const sessionManager: SessionManager = {
       key,
       onDispose,
       onLoad,
+      data,
       get observableQuery() {
         if (!observableQuery) {
           observableQuery = client.watchQuery({
             query: group,
             variables: key,
+            notifyOnNetworkStatusChange: true,
           });
         }
         return observableQuery;
       },
+      evict() {
+        onDispose.invokeAndClear();
+        onLoad.invokeAndClear();
+      },
       refetch() {
         onDispose.invokeAndClear();
         onLoad.invokeAndClear();
-        return sm.observableQuery.refetch();
+        return sessionManager.observableQuery.refetch();
       },
       start() {
         let token = (currentToken = {});
@@ -429,16 +538,13 @@ const getSessionManager = (client: Client, group: any = {}, key: any = {}) => {
           get isActive() {
             return token === currentToken;
           },
-          manager: sm,
+          manager: sessionManager,
           onDispose,
         };
       },
     };
-    sessionManager = sm;
-    sessionManagerGroup?.push(sm);
-  }
-
-  return sessionManager;
+    return sessionManager;
+  });
 };
 
 const handleFetchResult = <T>(result: FetchResult<T>) => {
@@ -461,18 +567,18 @@ const getUpdatedData = <T>(
   return recipe;
 };
 
-const createAtomDispatcher = <TData>(
+const createStateDispatcher = <TData>(
   originalContext: ApolloContext,
-  atom: Atom<TData>,
+  state: State<TData>,
   session: Session,
   updatable: boolean,
   meta: any,
-  recomputeDerivedAtom?: VoidFunction
+  recomputeDerivedState?: VoidFunction
 ) => {
-  const atomHandler = createProp(
+  const { get, set, on, rv } = createProp(
     originalContext.client,
-    // must add atom suffix to make no duplicates to other entity name
-    atom.name + "Atom",
+    // must add state suffix to make no duplicates to other entity name
+    state.name + "State",
     () => {
       const rv = makeVar({} as any);
       const sm = getSessionManager(originalContext.client, false);
@@ -486,18 +592,19 @@ const createAtomDispatcher = <TData>(
       const recompute = () => {
         const newSession = sm.start();
         let nextValue: any;
-        if (typeof atom.initial === "function") {
+        if (typeof state.initial === "function") {
           const nestedContext = createContext(
             originalContext,
             newSession,
             meta,
             updatable,
             undefined,
-            recompute
+            recompute,
+            () => sm.data
           );
-          nextValue = (atom.initial as Function)(nestedContext);
+          nextValue = (state.initial as Function)(nestedContext);
         } else {
-          nextValue = atom.initial;
+          nextValue = state.initial;
         }
         sm.onLoad.invokeAndClear();
         setValue(nextValue);
@@ -506,6 +613,7 @@ const createAtomDispatcher = <TData>(
       recompute();
 
       return {
+        rv,
         get() {
           return rv();
         },
@@ -514,26 +622,81 @@ const createAtomDispatcher = <TData>(
           const nextValue = getUpdatedData(value, rv);
           setValue(nextValue);
         },
-        next: rv.onNextChange,
+        on(handlers: Record<string, any>) {
+          const unsubscribe = callbackGroup();
+          if (handlers.change) {
+            unsubscribe(rv.onNextChange(handlers.change));
+          }
+          return unsubscribe.invokeAndClear;
+        },
       };
     }
   );
 
-  return (...args: any[]) => {
-    if (!args.length) {
-      const value = atomHandler.get();
-      if (recomputeDerivedAtom) {
-        session.manager.onLoad(() =>
-          session.manager.onDispose(atomHandler.next(recomputeDerivedAtom))
-        );
+  return Object.assign(
+    (...args: any[]) => {
+      if (!args.length) {
+        const value = get();
+        if (recomputeDerivedState) {
+          session.manager.onLoad(() =>
+            session.manager.onDispose(on({ change: recomputeDerivedState }))
+          );
+        }
+        return value;
       }
-      return value;
+      if (!updatable) {
+        throw new Error("Updating state in this context is not allowed");
+      }
+      set(args[0]);
+    },
+    { rv, next: rv.onNextChange }
+  );
+};
+
+const getObservableQuery = (client: Client, query: Query, variables: any) => {
+  return getSessionManager(
+    client,
+    query.document,
+    query.mergeOptions({ variables }).variables
+  ).observableQuery;
+};
+
+const subscribeQueryChangeEvent = (
+  observableQuery: ObservableQuery,
+  callback: (result: ApolloQueryResult<any>) => void,
+  once: boolean
+) => {
+  let prevData = observableQuery.getCurrentResult().data;
+  const subscription = observableQuery.subscribe((result) => {
+    if (
+      result.error ||
+      result.loading ||
+      prevData === observableQuery.getCurrentResult().data
+    ) {
+      return;
     }
-    if (!updatable) {
-      throw new Error("Updating atom in this context is not allowed");
-    }
-    atomHandler.set(args[0]);
-  };
+    if (once) subscription.unsubscribe();
+    callback(result);
+  });
+  return () => subscription.unsubscribe();
+};
+
+const evictQuery = (client: Client, query: Query, variables: any) => {
+  const options = query.mergeOptions({ variables });
+  const data = client.readQuery(options);
+  if (data) {
+    const definition = getQueryDefinition(query.document);
+    definition.selectionSet.selections.forEach((x) => {
+      if (x.kind !== Kind.FIELD) return;
+      client.cache.evict({
+        id: "ROOT_QUERY",
+        fieldName: x.name.value,
+        // broadcast: true,
+        args: options.variables,
+      });
+    });
+    client.cache.gc();
+  }
 };
 
 const createQueryDispatcher = <TVariables, TData>(
@@ -541,16 +704,17 @@ const createQueryDispatcher = <TVariables, TData>(
   query: Query<TVariables, TData>,
   session: Session,
   contextProxy: any,
-  getDerivedQuery?: () => ObservableQuery
+  getContextData: () => any,
+  getDerivedQuery?: () => QueryInfo
 ) => {
-  const fetch = async (variables: any, fetchPolicy?: FetchPolicy) => {
-    return handleFetchResult(
-      await client.query({
-        query: query.document,
-        variables: wrapVariables(!!query.resolver, variables),
-        fetchPolicy,
-      })
-    );
+  const fetch = async (variables: any, noCache: boolean = false) => {
+    const oq = getObservableQuery(client, query, variables);
+
+    if (noCache) {
+      return handleFetchResult(await oq.refetch());
+    }
+
+    return handleFetchResult(await oq.result());
   };
 
   return Object.assign(
@@ -563,38 +727,90 @@ const createQueryDispatcher = <TVariables, TData>(
             query.document,
             variables
           ).observableQuery;
-          let prevData = oq.getCurrentResult().data;
-          const subscription = oq.subscribe((result) => {
-            if (
-              result.error ||
-              result.loading ||
-              prevData === oq.getCurrentResult().data
-            ) {
-              return;
-            }
-            subscription.unsubscribe();
-            if (session.isActive) {
-              getDerivedQuery().refetch();
-            }
-          });
-          session.manager.onDispose(() => subscription.unsubscribe());
+          session.manager.onDispose(
+            subscribeQueryChangeEvent(
+              oq,
+              () => {
+                if (session.isActive) {
+                  const qi = getDerivedQuery();
+                  if (getContextData?.()?.[ENABLE_HARD_REFETCH]) {
+                    evictQuery(client, qi.query, variables);
+                    qi.observable.result();
+                    return;
+                  }
+                  qi.observable.refetch();
+                }
+              },
+              true
+            )
+          );
         });
       }
       return data;
     },
     {
+      evict(variables: any) {
+        return evictQuery(client, query, variables);
+      },
       resolve(variables: any) {
         // call query resolver directly if possible
         if (query.resolver) {
           return query.resolver(variables, contextProxy);
         }
         // unless call query with no-cache fetchPolicy
-        return fetch(variables, "no-cache");
+        return fetch(variables, true);
       },
       async refetch(variables: any = {}) {
         return handleFetchResult(
           await getSessionManager(client, query.document, variables).refetch()
         );
+      },
+      on(handlers: Record<string, Function>, variables: any) {
+        const unsubscribe = callbackGroup();
+
+        if (handlers.change) {
+          const oq = getObservableQuery(client, query, variables);
+          unsubscribe(
+            subscribeQueryChangeEvent(
+              oq,
+              (result) => handlers.change(result.data),
+              false
+            )
+          );
+        }
+        return unsubscribe.invokeAndClear;
+      },
+      called(variables: any) {
+        const oq = getObservableQuery(client, query, variables);
+        return !!oq.getLastResult();
+      },
+      data(variables: any) {
+        const oq = getObservableQuery(client, query, variables);
+        return oq.getLastResult()?.data;
+      },
+      async set(recipe: any, variables: any) {
+        const options = query.mergeOptions({ variables });
+        let updatedData: any;
+
+        if (typeof recipe === "function") {
+          // recipe function needs previous data so skip update if query is not fetched
+          const prevData = client.readQuery(options);
+          if (!prevData) return;
+          updatedData = produce(prevData, recipe);
+        } else {
+          updatedData = patchTypeIfPossible(recipe, query.dataType);
+        }
+        // no data
+        if (!updatedData) return;
+
+        client.writeQuery({
+          ...options,
+          data: updatedData,
+          broadcast: true,
+          overwrite: true,
+        });
+
+        await untilSubscriptionNotifyingDone();
       },
     }
   );
@@ -629,14 +845,29 @@ const createContext = (
   session: Session,
   meta: any,
   updatable: boolean,
-  getDerivedQuery?: () => ObservableQuery,
-  recomputeDerivedAtom?: VoidFunction
+  getDerivedQuery?: () => QueryInfo,
+  recomputeDerivedState?: VoidFunction,
+  getSharedData?: () => any
 ) => {
-  const resolvedProps = new Map<any, any>();
+  let data: any;
+  const use = (extras: Function, ...args: any[]) =>
+    extras(contextProxy, ...args);
+  const resolvedProps = new Map<any, any>([
+    ["use", use],
+    ["context", originalContext],
+    ["client", originalContext.client],
+  ]);
   const contextProxy = new Proxy(
     {},
     {
       get(_, p) {
+        if (p === "data") {
+          if (!data) {
+            data = getSharedData ? getSharedData() : {};
+          }
+          return data;
+        }
+
         if (resolvedProps.has(p)) {
           return resolvedProps.get(p);
         }
@@ -651,6 +882,7 @@ const createContext = (
               value,
               session,
               contextProxy,
+              () => data,
               getDerivedQuery
             );
             resolvedProps.set(p, dispatcher);
@@ -667,14 +899,27 @@ const createContext = (
             return dispatcher;
           }
 
-          if (isAtom(value)) {
-            const dispatcher = createAtomDispatcher(
+          if (isState(value)) {
+            const dispatcher = createStateDispatcher(
               originalContext,
               value,
               session,
               updatable,
               meta,
-              recomputeDerivedAtom
+              recomputeDerivedState ??
+                (getDerivedQuery &&
+                  (() => {
+                    const qi = getDerivedQuery();
+                    if (data?.[ENABLE_HARD_REFETCH]) {
+                      evictQuery(
+                        originalContext.client,
+                        qi.query,
+                        qi.observable.variables
+                      );
+                      return;
+                    }
+                    qi.observable.refetch();
+                  }))
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;
@@ -707,7 +952,89 @@ const unwrapVariables = (variables: any) => {
 
 const wrapVariables = (dynamic: boolean | undefined, variables: any) => {
   if (!dynamic || isMappedVariables(variables)) return variables;
-  return { [WRAPPED_VARIABLE_NAME]: variables };
+  return { [WRAPPED_VARIABLE_NAME]: variables || {} };
 };
 
-export { createModel };
+const patchLocalFields = (
+  document: DocumentNode,
+  fieldMappings: FieldMappings
+) => {
+  // stack of parent types, the first one is latest type
+  const parentTypes: (string | undefined)[] = [];
+  return visit(document, {
+    [Kind.FIELD]: {
+      enter(field, _1, _2, _3, ancestors) {
+        let dataType: string | undefined;
+        try {
+          const parentField = ancestors[ancestors.length - 2];
+          const isRoot =
+            parentField &&
+            (parentField as OperationDefinitionNode).kind ===
+              Kind.OPERATION_DEFINITION;
+          const availFields =
+            (isRoot
+              ? fieldMappings.ROOT
+              : parentTypes[0]
+              ? fieldMappings[parentTypes[0]]
+              : undefined) ?? {};
+
+          if (field.name.value in availFields) {
+            const mapping = availFields[field.name.value];
+            dataType = mapping.type;
+            const newField = {
+              ...field,
+              directives: [
+                ...(field.directives ?? []),
+                // add @client directive
+                {
+                  kind: Kind.DIRECTIVE,
+                  name: {
+                    kind: Kind.NAME,
+                    value: "client",
+                  },
+                },
+              ],
+            };
+
+            if (!newField.alias && field.name.value !== mapping.field) {
+              newField.alias = { kind: Kind.NAME, value: field.name.value };
+            }
+            // for dynamic query/mutation we must wrap all arguments to __VARS__ arg
+            if (newField.arguments?.length) {
+              const objValues: ObjectValueNode = {
+                kind: Kind.OBJECT,
+                fields: newField.arguments.map((arg) => ({
+                  kind: Kind.OBJECT_FIELD,
+                  name: arg.name,
+                  value: arg.value,
+                })),
+              };
+
+              newField.arguments = [
+                {
+                  kind: Kind.ARGUMENT,
+                  name: { kind: Kind.NAME, value: WRAPPED_VARIABLE_NAME },
+                  value: objValues,
+                },
+              ];
+            }
+
+            newField.name = {
+              kind: Kind.NAME,
+              value: mapping.field,
+            };
+
+            return newField;
+          }
+        } finally {
+          parentTypes.unshift(dataType);
+        }
+      },
+      leave() {
+        parentTypes.shift();
+      },
+    },
+  });
+};
+
+export { createModel, evictQuery, patchLocalFields, ENABLE_HARD_REFETCH };

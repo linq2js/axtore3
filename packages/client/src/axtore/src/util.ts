@@ -1,4 +1,5 @@
-import { Atom, Mutation, ObjectType, Query } from "./types2";
+import { State, LoadableSource, Mutation, ObjectType, Query } from "./types";
+import { gql as originalGql } from "graphql-tag";
 import {
   DefinitionNode,
   DocumentNode,
@@ -29,10 +30,13 @@ const isMutation = <TVariables = {} | undefined, TData = any>(
   return getType(obj) === "mutation";
 };
 
-const isAtom = <T>(obj: any): obj is Atom<T> => {
-  return getType(obj) === "atom";
+const isState = <T>(obj: any): obj is State<T> => {
+  return getType(obj) === "state";
 };
 
+const isLoadable = <T>(obj: any): obj is LoadableSource<T> => {
+  return getType(obj) === "loadable";
+};
 const isPromiseLike = <T>(value: any): value is Promise<T> => {
   return value && typeof value.then === "function";
 };
@@ -153,13 +157,20 @@ const forEach = <T>(
 const typed = <TVariables, TData>(document: DocumentNode) =>
   document as TypedQueryDocumentNode<TData, TVariables>;
 
+const gql = <TVariables = any, TData = any>(
+  ...args: Parameters<typeof originalGql>
+) => originalGql(...args) as TypedQueryDocumentNode<TData, TVariables>;
+
+const untilSubscriptionNotifyingDone = () => delay(0);
+
 export {
   getType,
   isQuery,
   isMutation,
-  isAtom,
+  isState,
   isPromiseLike,
   isFunction,
+  isLoadable,
   noop,
   deferIf,
   is,
@@ -171,5 +182,7 @@ export {
   documentType,
   selectDefinition,
   forEach,
+  gql,
   typed,
+  untilSubscriptionNotifyingDone,
 };

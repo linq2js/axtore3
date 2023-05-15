@@ -179,8 +179,6 @@ const enableAsyncTesting = () => {
   cleanFetchMocking();
 };
 
-const untilSubscriptionNotifyingDone = () => delay(5);
-
 export {
   DEFAULT_GRAPHQL_URI,
   DEFAULT_REST_URI,
@@ -189,5 +187,4 @@ export {
   enableAsyncTesting,
   cleanFetchMocking,
   registerFetchMocking,
-  untilSubscriptionNotifyingDone,
 };

@@ -8,8 +8,8 @@ import {
 import { NoInfer, Query, VariablesOptions, WithVariables } from "../types";
 import { useRef, useState } from "react";
 
-import { evictQuery } from "../resolver";
 import { useStable } from "./useStable";
+import { evictQuery } from "../createModel";
 
 export type UseQueryOptions<TData> = {
   onCompleted?: (data: TData) => void;
@@ -18,7 +18,7 @@ export type UseQueryOptions<TData> = {
   context?: any;
 };
 
-const useQuery = <TVariables extends OperationVariables, TData>(
+const useQuery = <TVariables, TData>(
   query: Query<TVariables, TData>,
   ...args: NoInfer<
     VariablesOptions<TVariables, UseQueryOptions<TData> | undefined>
@@ -27,8 +27,8 @@ const useQuery = <TVariables extends OperationVariables, TData>(
   const { onCompleted, onError, onDone, ...customOptions } =
     (args[0] as WithVariables<TVariables, UseQueryOptions<TData>>) ?? {};
   const client = useApolloClient();
-  const handler = query.use(client);
-  const mergedOptions = handler.mergeOptions(customOptions);
+  query.model.init(client);
+  const mergedOptions = query.mergeOptions(customOptions);
   const stableOptions = useStable({
     onCompleted:
       onCompleted || onDone
@@ -52,10 +52,7 @@ const useQuery = <TVariables extends OperationVariables, TData>(
     ...mergedOptions,
     ...stableOptions,
   };
-  const result = apolloUseQuery<TData, TVariables>(
-    query.document,
-    queryOptions
-  );
+  const result = apolloUseQuery<TData, any>(query.document, queryOptions);
   const resultRef = useRef(result);
   resultRef.current = result;
 
@@ -82,19 +79,21 @@ const useQuery = <TVariables extends OperationVariables, TData>(
       refetch() {
         return resultRef.current.refetch();
       },
+      evict() {
+        return evictQuery(client, query, customOptions.variables);
+      },
       wait() {
         if (resultRef.current.error) {
           throw resultRef.current.error;
         }
-
-        if (isLoading(resultRef.current.observable)) {
+        if (
+          resultRef.current.loading ||
+          isLoading(resultRef.current.observable)
+        ) {
           throw wait(resultRef.current.observable);
         }
 
         return resultRef.current.data as TData;
-      },
-      evict() {
-        evictQuery(client, query);
       },
     };
   })[0];
@@ -108,19 +107,26 @@ const isLoading = <TVariables extends OperationVariables>(
 };
 
 const wait = <TData>(observable: ObservableQuery<TData, any>) => {
-  return new Promise<TData>((resolve, reject) => {
-    const subscription = observable.subscribe((r) => {
-      if (r.loading) return;
+  const result = observable.getCurrentResult();
+  if (result.loading) {
+    return new Promise<TData>((resolve, reject) => {
+      const subscription = observable.subscribe((r) => {
+        if (r.loading) return;
 
-      subscription.unsubscribe();
+        subscription.unsubscribe();
 
-      if (r.error) {
-        reject(r.error);
-      } else {
-        resolve(r.data);
-      }
+        if (r.error) {
+          reject(r.error);
+        } else {
+          resolve(r.data);
+        }
+      });
     });
-  });
+  }
+  if (result.error) {
+    return Promise.reject(result.error);
+  }
+  return Promise.resolve(result.data);
 };
 
 export { useQuery, wait };

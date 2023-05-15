@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "lerna run dev",
-    "genTypes": "npx graphql-codegen --config ./scripts/codegen.js"
+    "genTypes": "npx graphql-codegen --config ./scripts/codegen.js",
+    "test": "jest"
   },
   "npmClient": "yarn",
   "devDependencies": {

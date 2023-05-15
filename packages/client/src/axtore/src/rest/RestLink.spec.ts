@@ -1,10 +1,9 @@
 import { cleanFetchMocking, createClient, registerFetchMocking } from "../test";
 
 import { RestLink } from "./RestLink";
-import { createMutation } from "../createMutation";
-import { createQuery } from "../createQuery";
 import { from } from "@apollo/client";
 import { rest } from ".";
+import { createModel } from "../createModel";
 
 const BASE_URL = "/api";
 
@@ -12,6 +11,33 @@ type PostValueArgs = { value: number };
 type PostValueData = { postValue: { result: string } };
 
 cleanFetchMocking();
+
+const model = createModel()
+  .query("getValue", rest<void, { result: string }>("get", "/value"))
+  .query(
+    "getValue1",
+    rest<void, { result: string }>("get", "/value", { type: "v1" })
+  )
+  .query(
+    "getValue2",
+    rest<void, { result: string }>("get", "/value", { type: "v2" })
+  )
+  .query("getValue3", rest<void, { result: string }>("get", "/value"))
+  .query(
+    "doubledValue",
+    rest<{ value: number }, { result: number }>(
+      "post",
+      "/doubledValue",
+      (variables) => ({ body: variables })
+    ).map((x) => x.result * 2)
+  )
+  .mutation(
+    "postValue",
+    rest<PostValueArgs, PostValueData>("post", (body) => ({
+      path: "/value",
+      body,
+    }))
+  );
 
 describe("query", () => {
   test("GET", async () => {
@@ -21,13 +47,8 @@ describe("query", () => {
       mock: [(_, url) => ({ result: url })],
     });
 
-    const GetValue = createQuery(
-      "getValue",
-      rest<void, { result: string }>("get", "/value")
-    );
-
     // act
-    const result = await GetValue.use(client).get();
+    const result = await model.call(client, (x) => x.$getValue());
 
     // assert
     expect(result).toEqual({ getValue: { result: `${BASE_URL}/value` } });
@@ -43,21 +64,9 @@ describe("query", () => {
       ],
     });
 
-    const PostValue = createMutation(
-      "postValue",
-      rest<PostValueArgs, PostValueData>("post", (body) => ({
-        path: "/value",
-        body,
-      }))
-    );
-
     // act
-    const r1 = await PostValue.use(client).call({
-      variables: { value: 1 },
-    });
-    const r2 = await PostValue.use(client).call({
-      variables: { value: 2 },
-    });
+    const r1 = await model.call(client, (x) => x.$postValue({ value: 1 }));
+    const r2 = await model.call(client, (x) => x.$postValue({ value: 2 }));
 
     // assert
     expect(r1).toEqual({ postValue: { result: 1 } });
@@ -72,17 +81,9 @@ describe("query", () => {
         ({ value }) => ({ result: value }),
       ],
     });
-    const DoubledValue = createQuery(
-      "doubledValue",
-      rest<{ value: number }, { result: number }>(
-        "post",
-        "/doubledValue",
-        (variables) => ({ body: variables })
-      ).map((x) => x.result * 2)
-    );
 
-    const r1 = await DoubledValue.use(client).get({ variables: { value: 1 } });
-    const r2 = await DoubledValue.use(client).get({ variables: { value: 2 } });
+    const r1 = await model.call(client, (x) => x.$doubledValue({ value: 1 }));
+    const r2 = await model.call(client, (x) => x.$doubledValue({ value: 2 }));
 
     expect(r1).toEqual({ doubledValue: 2 });
     expect(r2).toEqual({ doubledValue: 4 });
@@ -107,25 +108,10 @@ describe("multiple endpoints", () => {
       matcher: "v2",
     });
     const client = createClient({ link: from([api1, api2, fallback]) });
-    const GetValue1 = createQuery(
-      "getValue1",
-      rest<void, { result: string }>("get", "/value", { type: "v1" })
-    );
-    const GetValue2 = createQuery(
-      "getValue2",
-      rest<void, { result: string }>("get", "/value", { type: "v2" })
-    );
-    const GetValue3 = createQuery(
-      "getValue3",
-      rest<void, { result: string }>("get", "/value")
-    );
-
     // act
-    const [r1, r2, r3] = await Promise.all([
-      GetValue1.use(client).get(),
-      GetValue2.use(client).get(),
-      GetValue3.use(client).get(),
-    ]);
+    const [r1, r2, r3] = await model.call(client, (x) =>
+      Promise.all([x.$getValue1(), x.$getValue2(), x.$getValue3()])
+    );
 
     // assert
     expect(r1).toEqual({ getValue1: { result: "v1" } });

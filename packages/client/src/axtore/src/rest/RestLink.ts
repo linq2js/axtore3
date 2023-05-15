@@ -125,10 +125,8 @@ const createRestLink = (options: RestLinkOptions) => {
       if (typeof result === "function") {
         perRequestOptionsBuilder = result;
       } else {
-        const defaultOptions = await result;
-        perRequestOptionsBuilder = () => {
-          return defaultOptions ?? {};
-        };
+        const options = await result;
+        perRequestOptionsBuilder = () => options ?? {};
       }
     }
     const perRequestOptions = await perRequestOptionsBuilder();

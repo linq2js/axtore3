@@ -1,14 +1,16 @@
-import { QueryResolver, gql } from "../types";
+import { RootResolver } from "../types";
 
 import { REST_OPERATION_NAME } from "./RestLink";
 import { RestOptions } from "./types";
 import { generateName } from "../generateName";
+import gql from "graphql-tag";
 
 export type OptionsOrOptionsBuilder<TOptions, TVariables> =
   | TOptions
   | ((variables: TVariables) => TOptions);
 
-export type RestResolver<TVariables = any, TData = any> = QueryResolver<
+export type RestResolver<TVariables = any, TData = any> = RootResolver<
+  any,
   TVariables,
   TData
 > & {
@@ -51,7 +53,7 @@ const createOptionsBuilder = (
   };
 };
 
-const createRestResolverInternal = (resolver: QueryResolver) => {
+const createRestResolverInternal = (resolver: RootResolver<any, any, any>) => {
   return Object.assign(resolver, {
     map(mapper: Function) {
       return createRestResolverInternal(async (...args: any[]) => {

@@ -1,38 +1,361 @@
-import type { ApolloClient, FetchPolicy } from "@apollo/client";
-import type {
-  ApolloError,
-  MutationOptions,
-  QueryOptions,
-  ReactiveVar,
-  Reference,
-  StoreObject,
-} from "@apollo/client/core";
+import { DocumentNode, TypedQueryDocumentNode } from "graphql";
 
-import type { DocumentNode } from "graphql";
-import gql from "graphql-tag";
-
-export type NoInfer<T> = [T][T extends any ? 0 : never];
-
-export type Client<T = any> = ApolloClient<T>;
+import { ApolloClient, ApolloError } from "@apollo/client";
 
 export type ObjectType =
-  | "atom"
+  | "state"
   | "query"
   | "mutation"
   | "lazy"
   | "loadable"
   | "model";
 
-export type Listener<T = void> = (e: T) => void;
+export type ApolloContext = { client: Client };
 
-export type Future<T> = Promise<T extends Promise<infer R> ? R : T>;
+export type ContextType = "mutation" | "query" | "state";
 
-export type Equality<T> = (a: T, b: T) => boolean;
+export type NoInfer<T> = [T][T extends any ? 0 : never];
 
-export type MutationFetchPolicy = Extract<
-  FetchPolicy,
-  "network-only" | "no-cache"
+export type Client<TCacheShape = any> = ApolloClient<TCacheShape>;
+
+export type Query<TVariables = any, TData = any> = {
+  type: "query";
+  name: string;
+  document: DocumentNode;
+  resolver?: RootResolver<any, TVariables, TData>;
+  model: Model<any, any>;
+  dataType?: string;
+  mergeOptions(options?: any): any;
+};
+
+export type OperationEvents<TVariables, TData> = {
+  onCompleted?(data: TData, variables: TVariables): void;
+  onError?(error: ApolloError, variables: TVariables): void;
+};
+
+export type Mutation<TVariables = any, TData = any> = {
+  type: "mutation";
+  name: string;
+  document: DocumentNode;
+  resolver?: RootResolver<any, TVariables, TData>;
+  model: Model<any, any>;
+  dataType?: string;
+  mergeOptions(options?: any): any;
+};
+
+export type TypeResolverSet<TResolvers = any> = {
+  type: "type";
+  resolvers: TResolvers;
+};
+
+export type AddProp<TModel, TProp extends string, TValue> = TModel & {
+  [key in TProp]: TValue;
+};
+
+export type ResolverResult<T> = T extends Promise<any> ? T : Promise<T>;
+
+export type CustomContextFactory<TContext> = (
+  context: ApolloContext
+) => TContext;
+
+export type ModelOptions<TContext = {}> = {
+  context?: TContext | CustomContextFactory<TContext>;
+  prefix?: string;
+};
+
+export type ContextBase = {
+  client: Client;
+  data: any;
+  use<TResult, TArgs extends any[]>(
+    extras: (context: ContextBase, ...args: TArgs) => TResult,
+    ...args: TArgs
+  ): TResult;
+};
+
+export type QueryContext<TContext, TMeta> = ContextBase &
+  TContext &
+  DispatcherMap<TMeta, { async: true; read: true }>;
+
+export type FieldContext<TContext, TMeta> = ContextBase &
+  TContext &
+  DispatcherMap<TMeta, { async: true; read: true }>;
+
+export type StateContext<TContext, TMeta> = ContextBase &
+  TContext &
+  DispatcherMap<TMeta, { read: true }>;
+
+export type MutationContext<TContext, TMeta> = ContextBase &
+  TContext &
+  DispatcherMap<TMeta, { async: true; read: true; write: true }>;
+
+export type FieldResolver<
+  TContext,
+  TValue = any,
+  TArgs = any,
+  TResult = any
+> = (
+  value: TValue,
+  args: TArgs,
+  context: ApolloContext & TContext
+) => TResult | Promise<TResult>;
+
+export type RootResolver<TContext, TArgs = any, TResult = any> = (
+  args: TArgs,
+  context: TContext & ApolloContext
+) => TResult | Promise<TResult>;
+
+export type QueryOptions = { type?: string };
+
+export type MutationOptions = { type?: string };
+
+export type WithResolve<T extends (...args: any[]) => any> = {
+  (...args: Parameters<T>): ReturnType<T>;
+  resolve(...args: Parameters<T>): ReturnType<T>;
+};
+
+export type Dispatcher<TVariables, TData> = void extends TVariables
+  ? () => ResolverResult<TData>
+  : (variables: TVariables) => ResolverResult<TData>;
+
+export type RemovePrefix<
+  TPrefix extends string,
+  TValue
+> = TValue extends `${TPrefix}${infer TRest}` ? TRest : TValue;
+
+export type NormalizeProps<T> = {
+  [key in keyof T as T[key] extends never ? never : key]: T[key];
+};
+
+export type DispatcherScopes = Partial<
+  Record<"async" | "read" | "write", boolean>
 >;
+
+export type StateDispatcher<TScopes extends DispatcherScopes, TData> = {
+  (): TData;
+  on(listeners: { change?: (data: TData) => void }): VoidFunction;
+} & (TScopes extends { write: true }
+  ? {
+      (data: TData | ((prev: TData) => any)): void;
+    }
+  : {});
+
+export type QueryDispatcher<
+  TScopes extends DispatcherScopes,
+  TVariables,
+  TData
+> = WithResolve<Dispatcher<TVariables, TData>> &
+  (TScopes extends { write: true }
+    ? {
+        readonly refetch: Dispatcher<TVariables, TData>;
+
+        /**
+         * In normal, when we dispatch $queryName(),
+         * model calls client.query() to fetch query data, and client will handle local resolver for dynamic query.
+         * In this case, model calls query resolver directly without going through Apollo client, so no data fetching / caching process happens.
+         * In case of the query is static query, model does data fetching with no-cache policy.
+         */
+        readonly resolve: Dispatcher<TVariables, TData>;
+
+        /**
+         * remove the query data from the cache
+         */
+        readonly evict: Dispatcher<TVariables, TData>;
+
+        /**
+         * return true if the query is already fetched
+         */
+        readonly called: Dispatcher<TVariables, TData>;
+
+        /**
+         * get current data of the query. Return null if query is not fetched yet
+         */
+        readonly data: Dispatcher<TVariables, TData | undefined>;
+
+        /**
+         * register query listeners
+         * @param listeners
+         * @param args
+         */
+        on(
+          listeners: { change?: (data: TData) => void },
+          ...args: VariablesArgs<TVariables>
+        ): VoidFunction;
+
+        /**
+         * change query data
+         * @param dataOrRecipe
+         * @param args
+         */
+        set(
+          dataOrRecipe: UpdateRecipe<TData>,
+          ...args: VariablesArgs<TVariables>
+        ): Promise<void>;
+      }
+    : {});
+
+export type MutationDispatcher<TVariables, TData> = WithResolve<
+  Dispatcher<TVariables, TData>
+>;
+
+export type InferDispatcher<
+  TScopes extends DispatcherScopes,
+  T
+> = T extends State<infer TData>
+  ? StateDispatcher<TScopes, TData>
+  : TScopes extends { async: true }
+  ? T extends Query<infer TVariables, infer TData>
+    ? QueryDispatcher<TScopes, TVariables, TData>
+    : T extends Mutation<infer TVariables, infer TData>
+    ? MutationDispatcher<TVariables, TData>
+    : never
+  : never;
+
+export type DispatcherMap<
+  TMeta,
+  TScopes extends DispatcherScopes
+> = NormalizeProps<{
+  [key in `$${keyof TMeta & string}`]: InferDispatcher<
+    TScopes,
+    TMeta[RemovePrefix<"$", key> & keyof TMeta]
+  >;
+}>;
+
+export type State<TData = any> = {
+  type: "state";
+  model: Model<any, any>;
+  name: string;
+  initial: TData | ((context: StateContext<any, any>) => TData);
+};
+
+export type Effect<TContext = {}, TMeta = {}> = (
+  context: MutationContext<TContext, TMeta>
+) => void;
+
+export type AtomOptions = { name?: string };
+
+export type Model<TContext = {}, TMeta = {}> = {
+  use<TOtherMeta>(meta: TOtherMeta): Model<TContext, TMeta & TOtherMeta>;
+
+  query<TName extends string, TData, TVariables>(
+    name: TName,
+    document: TypedQueryDocumentNode<TData, TVariables>
+  ): Model<TContext, AddProp<TMeta, TName, Query<TVariables, TData>>>;
+
+  query<TName extends string>(
+    name: TName,
+    document: DocumentNode
+  ): Model<TContext, AddProp<TMeta, TName, Query<any, any>>>;
+
+  query<TAlias extends string, TName extends string, TVariables, TData>(
+    name: `${TAlias}:${TName}`,
+    resolver: RootResolver<QueryContext<TContext, TMeta>, TVariables, TData>,
+    options?: QueryOptions
+  ): Model<
+    TContext,
+    AddProp<TMeta, TAlias, Query<TVariables, { [key in TAlias]: TData }>>
+  >;
+
+  query<TName extends string, TVariables, TData>(
+    name: TName,
+    resolver: RootResolver<QueryContext<TContext, TMeta>, TVariables, TData>,
+    options?: QueryOptions
+  ): Model<
+    TContext,
+    AddProp<TMeta, TName, Query<TVariables, { [key in TName]: TData }>>
+  >;
+
+  mutation<TName extends string, TData, TVariables>(
+    name: TName,
+    document: TypedQueryDocumentNode<TData, TVariables>
+  ): Model<TContext, AddProp<TMeta, TName, Mutation<TVariables, TData>>>;
+
+  mutation<TName extends string, TVariables, TData>(
+    name: TName,
+    resolver: RootResolver<MutationContext<TContext, TMeta>, TVariables, TData>,
+    options?: MutationOptions
+  ): Model<
+    TContext,
+    AddProp<TMeta, TName, Mutation<TVariables, { [key in TName]: TData }>>
+  >;
+
+  state<TName extends string, TData>(
+    name: TName,
+    data: TData | ((context: StateContext<TContext, TMeta>) => TData),
+    options?: AtomOptions
+  ): Model<TContext, AddProp<TMeta, TName, State<TData>>>;
+
+  type<
+    TType extends string,
+    TResolvers extends Record<
+      string,
+      | FieldResolver<FieldContext<TContext, TMeta>, any, any, any>
+      | [string, FieldResolver<FieldContext<TContext, TMeta>, any, any, any>]
+    >
+  >(
+    type: TType,
+    resolvers: TResolvers
+  ): Model<TContext, AddProp<TMeta, TType, TResolvers>>;
+
+  effect(...fn: Effect<TContext, TMeta>[]): Model<TContext, TMeta>;
+
+  readonly meta: TMeta;
+  readonly effects: Effect<TContext, TMeta>[];
+
+  init(client: Client): void;
+
+  call<TResult, TArgs extends any[]>(
+    client: Client,
+    action: (
+      context: MutationContext<TContext, TMeta>,
+      ...args: TArgs
+    ) => TResult,
+    ...args: TArgs
+  ): TResult;
+};
+
+export type CreateModel = {
+  <TContext = {}>(options?: ModelOptions<TContext>): Model<TContext, {}>;
+};
+
+export type QueryHandler<TVariables, TData> = {
+  get(
+    ...args: [void extends TVariables ? [] : [variables: TVariables]]
+  ): Promise<TData>;
+
+  resolve(
+    context: any,
+    ...args: [void extends TVariables ? [] : [variables: TVariables]]
+  ): Promise<TData>;
+};
+
+export type MutationHandler<TVariables, TData> = {
+  call(
+    ...args: [void extends TVariables ? [] : [variables: TVariables]]
+  ): Promise<TData>;
+};
+
+export type UpdateRecipe<TData> =
+  | TData
+  | ((
+      prevData: TData
+    ) => TData extends Record<string, any>
+      ? void
+      : TData extends Array<any>
+      ? void
+      : TData);
+
+export type LoadableSource<T = any> = {
+  (): Loadable<T>;
+  invalidate(): void;
+};
+
+export type Loadable<T = any> = {
+  readonly type: "loadable";
+  readonly data: T | undefined;
+  readonly promise: Promise<T>;
+  readonly loading: boolean;
+  readonly error: unknown | undefined;
+} & PromiseLike<T>;
 
 export type VariablesArgs<TVariables> = TVariables extends void
   ? []
@@ -86,471 +409,8 @@ export type VariablesOptions<TVariables, TOptions> =
     ? [options: { variables: TVariables }]
     : [options: TOptions & { variables: TVariables }];
 
-export type AtomContext = {
-  get<TData>(atom: Atom<TData>): TData;
-};
+export type SkipFirst<T> = T extends [infer _, ...infer TRest] ? TRest : T;
 
-export type QueryContext = {
-  readonly context: any;
-  readonly self: unknown;
-  readonly client: Client;
-
-  /**
-   * get query data
-   * @param query
-   * @param args
-   */
-  get<TVariables, TData>(
-    query: Query<TVariables, TData>,
-    ...args: NoInfer<
-      VariablesOptions<TVariables, { fetchPolicy?: FetchPolicy } | undefined>
-    >
-  ): Promise<TData>;
-
-  /**
-   * get atom data
-   * @param atom
-   */
-  get<TData>(atom: Atom<TData>): TData;
-
-  /**
-   * enqueue the fn to effect queue. the effect queue will be executed after executing of the current resolver
-   * @param fn
-   */
-  effect(fn: (context: EffectContext) => VoidFunction | void): void;
-
-  effect(
-    signals: Signal | Signal[],
-    fn: (context: EffectContext) => void
-  ): void;
-};
-
-export type EffectContext = {
-  readonly data: any;
-  refetch(): void;
-  evict(field?: string[]): void;
-};
-
-export type Resolver<TContext, TArgs = any, TResult = any> = (
-  args: TArgs,
-  context: TContext
-) => TResult | LazyResult<TResult> | Promise<TResult>;
-
-export type QueryResolver<TArgs = any, TResult = any> = Resolver<
-  QueryContext,
-  TArgs,
-  TResult
->;
-
-export type MutationContext = QueryContext & {
-  /**
-   * get entity id from its type and id
-   * @param type
-   * @param id
-   */
-  identity(type: string, id: any): string | undefined;
-
-  /**
-   * change atom data
-   * @param atom
-   * @param options
-   */
-  set<TData>(atom: Atom<TData>, options: { data: UpdateRecipe<TData> }): void;
-
-  /**
-   * change query data
-   * @param query
-   * @param args
-   */
-  set<TVariables, TData>(
-    query: Query<TVariables, TData>,
-    ...args: VariablesOptions<TVariables, { data: UpdateRecipe<TData> }>
-  ): void;
-
-  /**
-   * change entity prop values
-   * @param type
-   * @param id
-   * @param fields
-   */
-  set<TData>(
-    type: string,
-    id: any,
-    fields: { [key in keyof TData]?: UpdateRecipe<TData[key]> }
-  ): void;
-
-  /**
-   * evict multiple entities
-   * @param entities
-   * @param fields
-   */
-  set<T extends StoreObject | Reference>(
-    entities: T | T[],
-    fields: { [key in keyof T]?: UpdateRecipe<T[key]> }
-  ): void;
-
-  /**
-   * evict single entity
-   * @param type
-   * @param id
-   */
-  evict(type: string | TypeDef, id: any): void;
-
-  /**
-   * evict query data
-   * @param query
-   * @param fields
-   */
-  evict<TVariables, TData>(
-    query: Query<TVariables, TData>,
-    fields?: (keyof TData)[] | Record<keyof TData, any>
-  ): void;
-  evict<T extends StoreObject | Reference>(entities: T | T[]): void;
-
-  /**
-   * refetch specific query with an options
-   * @param query
-   * @param args
-   */
-  refetch<TVariables, TData>(
-    query: Query<TVariables, TData>,
-    ...args: VariablesOptions<
-      TVariables,
-      { fetchPolicy?: FetchPolicy } | undefined
-    >
-  ): Promise<TData>;
-
-  /**
-   * call mutation
-   * @param mutation
-   * @param args
-   */
-  call<TVariables = any, TData = any>(
-    mutation: Mutation<TVariables, TData>,
-    ...args: VariablesOptions<TVariables, void>
-  ): Promise<TData>;
-};
-
-export type MutationResolver<TArgs = unknown, TResult = unknown> = Resolver<
-  MutationContext,
-  TArgs,
-  TResult
->;
-
-export type TypeDef = {
-  name: string;
-  fields?: Record<string, TypeDef | QueryResolver | [QueryResolver, TypeDef]>;
-  /**
-   * internal use only
-   */
-  __fieldMappers?: Record<string, Function>;
-};
-
-export type WithType<TType extends ObjectType = any> = {
-  readonly type: TType;
-};
-
-export type Atom<TData = any> = WithType<"atom"> & {
-  readonly document: DocumentNode;
-  use(client: Client): AtomHandler<TData>;
-};
-
-export type Query<TVariables = any, TData = any> = WithType<"query"> & {
-  readonly document: DocumentNode;
-  readonly dynamic: boolean;
-  use(client: Client): QueryHandler<TVariables, TData>;
-  wrap<TProp extends string, TResult = void>(
-    prop: TProp,
-    options?: {
-      map?: Resolver<QueryContext & { args: TVariables }, TData, TResult>;
-      cache?: boolean;
-      init?: (args: TVariables, context: QueryContext) => void | Promise<void>;
-    }
-  ): Query<TVariables, { [key in TProp]: TResult }>;
-};
-
-export type a = MutationOptions;
-
-export type Mutation<TVariables = any, TData = any> = WithType<"mutation"> & {
-  readonly document: DocumentNode;
-  readonly dynamic: boolean;
-  use(client: Client): MutationHandler<TVariables, TData>;
-  wrap<TProp extends string, TResult = void>(
-    prop: TProp,
-    options: {
-      map?: Resolver<MutationContext & { args: TVariables }, TData, TResult>;
-      prepare?: (
-        args: TVariables,
-        context: MutationContext
-      ) => void | Promise<void>;
-    }
-  ): Mutation<TVariables, { [key in TProp]: TResult }>;
-};
-
-export type QueryHandler<TVariables = any, TData = any> = {
-  get(...args: VariablesOptions<TVariables, void>): Promise<TData>;
-  refetch(
-    ...args: VariablesOptions<
-      TVariables,
-      { fetchPolicy?: FetchPolicy } | undefined
-    >
-  ): Promise<TData>;
-  subscribe(
-    ...args: VariablesOptions<TVariables, { onChange: (data: TData) => void }>
-  ): VoidFunction;
-  /**
-   * update query data
-   * @param options
-   */
-  set(
-    ...args: VariablesOptions<TVariables, { data: UpdateRecipe<TData | null> }>
-  ): void;
-
-  mergeOptions(
-    options?: Omit<QueryOptions<any, any>, "query"> &
-      OperationEvents<TVariables, TData>
-  ): QueryOptions<any, any>;
-};
-
-export type OperationEvents<TVariables, TData> = {
-  onCompleted?(data: TData, variables: TVariables): void;
-  onError?(error: ApolloError, variables: TVariables): void;
-};
-
-export type AtomHandler<TData> = {
-  readonly reactiveVar: ReactiveVar<TData>;
-  get(): TData;
-  set(options: { data: UpdateRecipe<TData> }): void;
-  subscribe(options: { onChange: (data: TData) => void }): VoidFunction;
-};
-
-export type CreateAtomOptions<TData> = {
-  key?: string;
-  /**
-   * indicate type of atom data, once atom data is changed, type patcher for the given type will be applied
-   */
-  type?: TypeDef;
-  equal?: Equality<TData>;
-};
-
-export type MutationHandler<TVariables, TData> = {
-  call(...args: VariablesOptions<TVariables, void>): Promise<TData>;
-  mergeOptions(
-    options?: Omit<MutationOptions<any, any>, "mutation"> &
-      OperationEvents<TVariables, TData>
-  ): MutationOptions<any, any>;
-};
-
-export type ExtractPrefix<TExpected, TReceived> = TReceived extends TExpected
-  ? TReceived
-  : TReceived extends `${infer TPrefix}:${string}`
-  ? TPrefix extends TExpected
-    ? TPrefix
-    : never
-  : never;
-
-export type ResolverMap<TData, TContext> = {
-  [key in keyof TData | `${keyof TData & string}:${string}`]?:
-    | Atom<TData[ExtractPrefix<keyof TData, key>]>
-    | Resolver<TContext, any, TData[ExtractPrefix<keyof TData, key>]>
-    | [
-        Resolver<
-          TContext,
-          any,
-          TData[ExtractPrefix<keyof TData, key>] extends Array<infer I>
-            ? Partial<I>[]
-            : Partial<TData[ExtractPrefix<keyof TData, key>]>
-        >,
-        ResolverType<ItemType<TData[ExtractPrefix<keyof TData, key>]>>
-      ];
-};
-
-export type ClientOnlyResolverMap<TVariables, TData, TContext> = {
-  [key in keyof TData | `${keyof TData & string}:${string}`]:
-    | Atom<TData[ExtractPrefix<keyof TData, key>]>
-    | Resolver<TContext, TVariables, TData[ExtractPrefix<keyof TData, key>]>
-    | [
-        Resolver<
-          TContext,
-          TVariables,
-          TData[ExtractPrefix<keyof TData, key>] extends Array<infer I>
-            ? Partial<I>[]
-            : Partial<TData[ExtractPrefix<keyof TData, key>]>
-        >,
-        ResolverType<ItemType<TData[ExtractPrefix<keyof TData, key>]>>
-      ];
-};
-
-export type CreateQueryOptions<TVariables = any, TData = any> = {
-  key?: string;
-  context?: any;
-  fetchPolicy?: FetchPolicy;
-
-  /**
-   * set default variable values
-   */
-  variables?: Partial<TVariables>;
-
-  evict?: {
-    when: Signal | Signal[];
-    fields?: (keyof TData)[] | Record<keyof TData, any>;
-  };
-
-  refetch?: {
-    when: Signal | Signal[];
-    variables?: TVariables;
-  };
-
-  /**
-   * when the query data is changed, axtore uses this equality function to compare prev to next data, change notification will be triggered if they are different
-   * @param prev
-   * @param next
-   * @returns
-   */
-  equal?: Equality<TData>;
-} & OperationEvents<TVariables, TData>;
-
-export type CreateStaticMutationOptions<TData = any> =
-  CreateMutationOptions<TData> & {
-    /**
-     * operation name
-     */
-    operation?: string;
-    types?: TypeDef[];
-    resolve?: ResolverMap<TData, MutationContext>;
-  };
-
-export type VariableBuilderContext = {
-  get<TData>(atom: Atom<TData>): TData;
-};
-
-export type CreateDynamicMutationOptions<TData = any> =
-  CreateMutationOptions<TData> & { type?: TypeDef };
-
-export type CreateStaticQueryOptions<TVariables = any, TData = any> = Omit<
-  CreateQueryOptions<TVariables, TData>,
-  "variables"
-> & {
-  /**
-   * operation name
-   */
-  operation?: string;
-  types?: TypeDef[];
-  variables?:
-    | Partial<TVariables>
-    | {
-        [key in keyof TVariables]?:
-          | Atom<Exclude<TVariables[key], undefined>>
-          | TVariables[key];
-      }
-    | ((context: VariableBuilderContext) => Partial<TVariables>);
-  resolve?: ResolverMap<TData, QueryContext>;
-};
-
-export type CreateDynamicQueryOptions<
-  TVariables = any,
-  TData = any
-> = CreateQueryOptions<TVariables, TData> & { type?: TypeDef };
-
-export type CreateMutationOptions<TVariables = any, TData = any> = {
-  context?: any;
-  fetchPolicy?: MutationFetchPolicy;
-  variables?: Partial<TVariables>;
-} & OperationEvents<TVariables, TData>;
-
-export type Optional<TOptions, TKey extends keyof TOptions> = Omit<
-  TOptions,
-  TKey
-> &
-  Partial<Pick<TOptions, TKey>>;
-
-export type ItemType<T> = T extends Array<infer I> ? I : T;
-
-export type ResolverType<T> = {
-  name: string;
-  fields?: { [key in keyof T]?: TypeDef | QueryResolver<unknown, T[key]> };
-};
-
-export type InferOperationInput<TVariables> = TVariables extends void
-  ? void
-  : { input: TVariables };
-
-export type UnknownFieldNameOperation = {
-  fieldName: null;
-};
-
-export type ConditionalContext = {
-  client: Client;
-
-  /**
-   * read atom data
-   * @param atom
-   */
-  get<TData>(atom: Atom<TData>): TData;
-
-  /**
-   * read query cached data, no query call occurs
-   * @param query
-   * @param args
-   */
-  get<TVariables, TData>(
-    query: Query<TVariables, TData>,
-    ...args: VariablesArgs<TVariables>
-  ): TData | undefined;
-};
-
-export type Condition = (context: ConditionalContext) => boolean;
-
-export type SignalDispatcher<TContext> = (context: TContext) => void;
-
-export type Signal<TContext = any> = (
-  client: Client,
-  dispatch: SignalDispatcher<TContext>
-) => VoidFunction;
-
-export type InferDefinitionType<K, T> = T extends UnknownFieldNameOperation
-  ? T extends Query<infer V, infer D>
-    ? Query<V, { [key in K & string]: D }>
-    : T extends Mutation<infer V, infer D>
-    ? Mutation<V, { [key in K & string]: D }>
-    : never
-  : T extends (name: string) => infer R
-  ? R
-  : T;
-
-export type LazyResultOptions = {
-  interval?: number;
-};
-
-export type LazyResult<T> = WithType<"lazy"> & {
-  readonly value: T;
-  readonly loader: () => Promise<T>;
-  readonly options: LazyResultOptions;
-};
-
-export type LoadableSource<T = any> = {
-  (): Loadable<T>;
-  invalidate(): void;
-};
-
-export type Loadable<T = any> = {
-  readonly type: "loadable";
-  readonly data: T | undefined;
-  readonly promise: Promise<T>;
-  readonly loading: boolean;
-  readonly error: unknown | undefined;
-} & PromiseLike<T>;
-
-export type UpdateRecipe<TData> =
-  | TData
-  | ((
-      prevData: TData
-    ) => TData extends Record<string, any>
-      ? void
-      : TData extends Array<any>
-      ? void
-      : TData);
-
-const EMPTY_RESOLVERS = {};
-
-export { EMPTY_RESOLVERS, gql };
+export type SkipFirstArg<T extends (...args: any) => any> = (
+  ...args: SkipFirst<Parameters<T>>
+) => ReturnType<T>;

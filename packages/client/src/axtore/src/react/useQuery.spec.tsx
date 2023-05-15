@@ -1,12 +1,11 @@
-import React, { Suspense } from "react";
+import React, { Suspense, useState } from "react";
 import { createClient, createWrapper, enableAsyncTesting } from "../test";
 
-import { createQuery } from "../createQuery";
-import { delay } from "../util";
-import { gql } from "../types";
+import { delay, gql, typed } from "../util";
 import { render } from "@testing-library/react";
 import { renderHook } from "@testing-library/react-hooks";
-import { useQuery } from "./useQuery";
+import { createModel } from "../createModel";
+import { createHooks } from "./createHooks";
 
 const DOC = gql`
   query GetValue($value: Int) {
@@ -17,9 +16,11 @@ const DOC = gql`
 type GetValueVariables = { value: number };
 type GetValueData = { getValue: number };
 
-const GetValue = createQuery<GetValueVariables, GetValueData>(DOC, {
-  operation: "GetValue",
-});
+const model = createModel().query(
+  "getValue",
+  typed<GetValueVariables, GetValueData>(DOC)
+);
+const { useGetValue } = createHooks(model.meta);
 
 enableAsyncTesting();
 
@@ -32,7 +33,7 @@ describe("normal query", () => {
     });
     const wrapper = createWrapper(client);
     const useTest = () => {
-      const r = useQuery(GetValue, { variables: { value: 1 } });
+      const r = useGetValue({ variables: { value: 1 } });
       return r.loading ? null : r.data;
     };
 
@@ -54,7 +55,7 @@ describe("normal query", () => {
     });
     const wrapper = createWrapper(client);
     const useTest = () => {
-      return useQuery(GetValue, { variables: { value: 1 } });
+      return useGetValue({ variables: { value: 1 } });
     };
 
     // act
@@ -66,6 +67,35 @@ describe("normal query", () => {
     await result.current.refetch();
     await delay(20);
     expect(result.current.data).toEqual({ getValue: 2 });
+  });
+});
+
+describe("dynamic query", () => {
+  test("passing args", async () => {
+    const client = createClient();
+    const model = createModel().query(
+      "doubledValue",
+      (args: { value: number }) => args.value * 2
+    );
+    const { useDoubledValue } = createHooks(model.meta);
+    const wrapper = createWrapper(client);
+    const { result } = renderHook(
+      () => {
+        const [value, setValue] = useState(1);
+        const { data } = useDoubledValue({ variables: { value } });
+        return { data, setValue };
+      },
+      { wrapper }
+    );
+    await delay(10);
+    expect(result.current.data).toEqual({ doubledValue: 2 });
+    result.current.setValue(2);
+    await delay(10);
+    expect(result.current.data).toEqual({ doubledValue: 4 });
+    const d1 = await model.call(client, (x) => x.$doubledValue({ value: 1 }));
+    const d2 = await model.call(client, (x) => x.$doubledValue({ value: 2 }));
+    expect(d1).toEqual({ doubledValue: 2 });
+    expect(d2).toEqual({ doubledValue: 4 });
   });
 });
 
@@ -82,9 +112,7 @@ describe("suspense and error boundary", () => {
 
     const Wrapper = createWrapper(client);
     const App = () => {
-      const d = useQuery(GetValue, {
-        variables: { value: 1 },
-      }).wait();
+      const d = useGetValue({ variables: { value: 1 } }).wait();
       return <div data-testid="value">{d.getValue}</div>;
     };
 

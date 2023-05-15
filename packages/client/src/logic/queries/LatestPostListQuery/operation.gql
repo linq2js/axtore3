@@ -1,9 +1,0 @@
-query LatestPostList($limit: Int) {
-  latestPosts(limit: $limit) {
-    id
-    title
-    body
-    userId
-    createdOn
-  }
-}

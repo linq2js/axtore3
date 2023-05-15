@@ -22,8 +22,8 @@ const useMutation = <TVariables, TData>(
 ) => {
   const { onCompleted, onError, onDone, ...customOptions } = options;
   const client = useApolloClient();
-  const handler = mutation.use(client);
-  const mergedOptions = handler.mergeOptions(customOptions);
+  mutation.model.init(client);
+  const mergedOptions = mutation.mergeOptions(customOptions);
   const stableOptions = useStable({
     onCompleted:
       onCompleted || onDone
@@ -74,11 +74,11 @@ const useMutation = <TVariables, TData>(
         return resultRef.current.reset();
       },
       async mutate(...args: VariablesArgs<TVariables>) {
-        const options = handler.mergeOptions({ variables: args[0] });
+        const options = mutation.mergeOptions({ variables: args[0] });
         return mutateRef.current(options);
       },
     };
-  }, [handler]);
+  }, [mutation]);
 };
 
 export { useMutation };

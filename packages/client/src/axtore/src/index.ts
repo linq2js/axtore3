@@ -1,8 +1,4 @@
 export * from "./types";
-export { createQuery as query } from "./createQuery";
-export { createMutation as mutation } from "./createMutation";
-export { createAtom as atom } from "./createAtom";
-export * from "./signals";
-export { createLazy as lazy, run } from "./resolver";
+export { createModel as model } from "./createModel";
 export { createLoadableSource as loadable } from "./createLoadableSource";
-export { delay } from "./util";
+export { delay, gql, typed } from "./util";
