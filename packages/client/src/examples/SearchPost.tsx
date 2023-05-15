@@ -7,10 +7,15 @@ const appModel = model()
   // define `term` state
   .state("term", "")
   // define `changeTerm` dynamic mutation
-  .mutation("changeTerm", (args: { term: string }, { $term }) =>
+  .mutation("changeTerm", (args: { term: string }, { $term }) => {
     // set `term` state value
-    $term(args.term)
-  )
+    $term(args.term);
+    // if the search term is complex we can use immer to update its props
+    // $term((term) => {
+    //   term.prop = value;
+    //   term.nestedProps.prop = value;
+    // });
+  })
   // define static query
   .query(
     "fetchPosts",
