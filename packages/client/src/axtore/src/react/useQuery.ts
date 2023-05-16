@@ -9,7 +9,7 @@ import { NoInfer, Query, VariablesOptions, WithVariables } from "../types";
 import { useRef, useState } from "react";
 
 import { useStable } from "./useStable";
-import { evictQuery } from "../createModel";
+import { evictQuery } from "../evictQuery";
 
 export type UseQueryOptions<TData> = {
   onCompleted?: (data: TData) => void;

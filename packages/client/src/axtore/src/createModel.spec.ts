@@ -1,4 +1,4 @@
-import { createModel, patchLocalFields } from "./createModel";
+import { createModel } from "./createModel";
 import { cleanFetchMocking, createClient } from "./test";
 import { untilSubscriptionNotifyingDone, gql } from "./util";
 
@@ -334,10 +334,13 @@ describe("compound testing", () => {
 describe("data", () => {
   test("data object must be persisted between mutation dispatches", async () => {
     const client = createClient();
-    const model = createModel().mutation("increment", (_: void, { data }) => {
-      data.count = (data.count ?? 0) + 1;
-      return data.count as number;
-    });
+    const model = createModel().mutation(
+      "increment",
+      (_: void, { shared: data }) => {
+        data.count = (data.count ?? 0) + 1;
+        return data.count as number;
+      }
+    );
     const d1 = await model.call(client, (x) => x.$increment());
     const d2 = await model.call(client, (x) => x.$increment());
     const d3 = await model.call(client, (x) => x.$increment());

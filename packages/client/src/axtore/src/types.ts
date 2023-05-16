@@ -1,6 +1,11 @@
 import { DocumentNode, TypedQueryDocumentNode } from "graphql";
 
-import { ApolloClient, ApolloError } from "@apollo/client";
+import {
+  ApolloClient,
+  ApolloError,
+  ApolloQueryResult,
+  ObservableQuery,
+} from "@apollo/client";
 
 export type ObjectType =
   | "state"
@@ -22,7 +27,7 @@ export type Query<TVariables = any, TData = any> = {
   document: DocumentNode;
   resolver?: RootResolver<any, TVariables, TData>;
   model: Model<any, any>;
-  dataType?: string;
+  options: QueryOptions;
   mergeOptions(options?: any): any;
 };
 
@@ -37,7 +42,7 @@ export type Mutation<TVariables = any, TData = any> = {
   document: DocumentNode;
   resolver?: RootResolver<any, TVariables, TData>;
   model: Model<any, any>;
-  dataType?: string;
+  options: QueryOptions;
   mergeOptions(options?: any): any;
 };
 
@@ -69,8 +74,8 @@ export type Extras<TResult = any, TArgs extends any[] = []> = (
 export type ExtrasContext = ContextBase;
 
 export type ContextBase = {
-  client: Client;
-  data: any;
+  readonly client: Client;
+  readonly shared: any;
   use<TResult, TArgs extends any[]>(
     extras: Extras<TResult, TArgs>,
     ...args: TArgs
@@ -109,9 +114,14 @@ export type RootResolver<TContext, TArgs = any, TResult = any> = (
   context: TContext & ApolloContext
 ) => TResult | Promise<TResult>;
 
-export type QueryOptions = { type?: string };
+export type ConcurrencyOptions = { debounce?: number; throttle?: number };
 
-export type MutationOptions = { type?: string };
+export type QueryOptions = {
+  type?: string;
+  hardRefetch?: boolean;
+} & ConcurrencyOptions;
+
+export type MutationOptions = { type?: string } & ConcurrencyOptions;
 
 export type WithResolve<T extends (...args: any[]) => any> = {
   (...args: Parameters<T>): ReturnType<T>;
@@ -419,3 +429,53 @@ export type SkipFirst<T> = T extends [infer _, ...infer TRest] ? TRest : T;
 export type SkipFirstArg<T extends (...args: any) => any> = (
   ...args: SkipFirst<Parameters<T>>
 ) => ReturnType<T>;
+
+export type CallbackGroup = {
+  /**
+   * add callback into the group and return `remove` function
+   * @param callback
+   */
+  (callback: Function): VoidFunction;
+  called(): number;
+  /**
+   * call all callbacks with specified args
+   * @param args
+   */
+  invoke(...args: any[]): void;
+  /**
+   * remove all callbacks
+   */
+  clear(): void;
+  size(): number;
+  clone(): CallbackGroup;
+  invokeAndClear(...args: any[]): void;
+};
+
+export type SessionManager = {
+  readonly key: any;
+  /**
+   * this uses for query session only
+   */
+  readonly observableQuery: ObservableQuery;
+  readonly data: any;
+  start(): Session;
+  onLoad: CallbackGroup;
+  onDispose: CallbackGroup;
+  evict(): void;
+  refetch(): Promise<ApolloQueryResult<any>>;
+};
+
+export type Session = {
+  readonly isActive: boolean;
+  readonly manager: SessionManager;
+};
+
+export type FieldMappings = Record<
+  string,
+  Record<string, { field: string; type?: string }>
+>;
+
+export type QueryInfo = {
+  query: Query;
+  observable: ObservableQuery;
+};

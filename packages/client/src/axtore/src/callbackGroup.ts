@@ -1,23 +1,4 @@
-export type CallbackGroup = {
-  /**
-   * add callback into the group and return `remove` function
-   * @param callback
-   */
-  (callback: Function): VoidFunction;
-  called(): number;
-  /**
-   * call all callbacks with specified args
-   * @param args
-   */
-  invoke(...args: any[]): void;
-  /**
-   * remove all callbacks
-   */
-  clear(): void;
-  size(): number;
-  clone(): CallbackGroup;
-  invokeAndClear(...args: any[]): void;
-};
+import { CallbackGroup } from "./types";
 
 const callbackGroup = (
   callbacks: Function[] = [],

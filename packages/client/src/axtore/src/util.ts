@@ -9,6 +9,9 @@ import {
   OperationTypeNode,
   TypedQueryDocumentNode,
 } from "graphql";
+import { FetchResult } from "@apollo/client";
+
+const WRAPPED_VARIABLE_NAME = "__VARS__";
 
 const enqueue = Promise.resolve().then.bind(Promise.resolve());
 
@@ -76,6 +79,10 @@ const createProp = <T = unknown>(
 ) => {
   if (obj?.[prop]) return obj[prop] as T;
   return (obj[prop] = valueFactory());
+};
+
+const removeProp = (obj: any, prop: any) => {
+  delete obj[prop];
 };
 
 const debounceMicroTask = (task: VoidFunction) => {
@@ -163,6 +170,31 @@ const gql = <TVariables = any, TData = any>(
 
 const untilSubscriptionNotifyingDone = () => delay(0);
 
+const isMappedVariables = (variables: any) =>
+  variables &&
+  typeof variables === "object" &&
+  WRAPPED_VARIABLE_NAME in variables;
+
+const unwrapVariables = (variables: any) => {
+  return isMappedVariables(variables)
+    ? variables[WRAPPED_VARIABLE_NAME]
+    : variables;
+};
+
+const wrapVariables = (dynamic: boolean | undefined, variables: any = {}) => {
+  const hasKey = Object.keys(variables).length > 0;
+  if (!hasKey) {
+    variables = undefined;
+  }
+  if (!dynamic || isMappedVariables(variables)) return variables;
+  return { [WRAPPED_VARIABLE_NAME]: variables };
+};
+
+const handleFetchResult = <T>(result: FetchResult<T>) => {
+  if (result.errors?.length) throw result.errors[0];
+  return result.data;
+};
+
 export {
   getType,
   isQuery,
@@ -177,6 +209,7 @@ export {
   delay,
   forever,
   createProp,
+  removeProp,
   enqueue,
   debounceMicroTask,
   documentType,
@@ -185,4 +218,8 @@ export {
   gql,
   typed,
   untilSubscriptionNotifyingDone,
+  wrapVariables,
+  unwrapVariables,
+  WRAPPED_VARIABLE_NAME,
+  handleFetchResult,
 };

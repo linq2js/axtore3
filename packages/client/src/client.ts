@@ -30,7 +30,7 @@ const client = new ApolloClient({
         const posts = await fetch(
           "https://jsonplaceholder.typicode.com/posts"
         ).then((res) => res.json());
-        console.log(term);
+
         return posts.filter(
           (x: any) =>
             (!term.userId || x.userId === term.userId) &&

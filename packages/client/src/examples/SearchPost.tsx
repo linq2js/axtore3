@@ -1,9 +1,7 @@
 import { Suspense } from "react";
-import { model, gql, delay } from "axtore";
+import { model, gql } from "axtore";
 import { createHooks } from "axtore/react";
-import { hardRefresh } from "axtore/extras/hardRefetch";
 import { SearchTerm } from "../types";
-import { debounce } from "axtore/extras/debounce";
 
 const appModel = model()
   // define `term` state
@@ -25,26 +23,22 @@ const appModel = model()
       }
     `
   )
-  .query("postList", async (_: void, { $term, $fetchPosts, use }) => {
-    // `postList` query depends on `term` state that means if `term` state changed, the postList query does data re-fetching as well
-    // by default the query will do soft refresh (fetching new data in background, the UI still render previous data)
-    // by using `hardRefresh` extras we force the query clean up its data before doing data fetching
-    use(hardRefresh); // remove this line to see soft refresh effect
+  .query(
+    "postList",
+    async (_: void, { $term, $fetchPosts }) => {
+      console.log("start searching");
 
-    // in case of user types too fast, perform debouncing to avoid server hit many times
-    await use(debounce, 300);
+      // get `term` state value and listen state changing event
+      const term = $term();
 
-    console.log("start searching");
+      // we might call other queries to prepare the input for `fetchPosts` query
 
-    // get `term` state value and listen state changing event
-    const term = $term();
-
-    // we might call other queries to prepare the input for `fetchPosts` query
-
-    // call other query to fetch data
-    const { posts } = await $fetchPosts({ term });
-    return posts;
-  });
+      // call other query to fetch data
+      const { posts } = await $fetchPosts({ term });
+      return posts;
+    },
+    { debounce: 1000, hardRefetch: true }
+  );
 
 const { usePostList, useChangeTerm, useTerm } = createHooks(appModel.meta);
 
