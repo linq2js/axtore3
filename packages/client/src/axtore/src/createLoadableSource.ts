@@ -1,4 +1,4 @@
-import { Loadable, LoadableSource } from "./types";
+import type { Loadable, LoadableSource } from "./types";
 
 export type LoadableSourceOptions = {
   preload?: boolean;

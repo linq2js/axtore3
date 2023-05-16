@@ -1,7 +1,12 @@
-import { ConcurrencyOptions } from "./types";
+import type { ConcurrencyOptions } from "./types";
 import { createProp, forever } from "./util";
 
-type ConcurrencyData = { data?: any };
+type ConcurrencyData = {
+  data?: any;
+  promise?: Promise<any>;
+  resolve?: (value: any) => void;
+  reject?: (value: any) => void;
+};
 
 const CONCURRENCY_PROP = Symbol("concurrency");
 
@@ -18,11 +23,22 @@ const concurrency = <T>(
 
   if (options.debounce) {
     clearTimeout(concurrencyData.data);
-    return new Promise<T>((resolve) => {
-      concurrencyData.data = setTimeout(() => {
-        fn().then(resolve);
-      }, options.debounce);
-    });
+
+    concurrencyData.data = setTimeout(() => {
+      const resolve = concurrencyData.resolve;
+      const reject = concurrencyData.reject;
+      delete concurrencyData.promise;
+      delete concurrencyData.resolve;
+      fn().then(resolve, reject);
+    }, options.debounce);
+
+    if (!concurrencyData.promise) {
+      concurrencyData.promise = new Promise((resolve, reject) => {
+        Object.assign(concurrencyData, { resolve, reject });
+      });
+    }
+
+    return concurrencyData.promise;
   }
   if (options.throttle) {
     const lastExecution = (concurrencyData.data as number) ?? 0;

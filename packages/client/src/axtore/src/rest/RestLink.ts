@@ -1,13 +1,13 @@
+import type { HttpOptions, Observer } from "@apollo/client";
+
 import {
-  ApolloLink,
-  HttpOptions,
   Observable,
-  Observer,
+  ApolloLink,
   checkFetcher,
   createSignalIfSupported,
 } from "@apollo/client";
 
-import { RestOptions } from "./types";
+import type { RestOptions } from "./types";
 
 export type DefaultRestOptions = Partial<Omit<RestOptions, "path">>;
 

@@ -1,13 +1,14 @@
-import {
+import type {
   RemovePrefix,
   Query,
   SkipFirstArg,
   Mutation,
   State,
   NormalizeProps,
+  Model,
 } from "../types";
-import { useQuery as queryHook } from "./useQuery";
-import { useMutation as mutationHook } from "./useMutation";
+import { useQuery } from "./useQuery";
+import { useMutation } from "./useMutation";
 import { isState, isMutation, isQuery } from "../util";
 import {
   useApolloClient,
@@ -16,9 +17,9 @@ import {
 import { useMemo } from "react";
 
 type InferHook<T> = T extends Query<infer TVariables, infer TData>
-  ? SkipFirstArg<typeof queryHook<TVariables, TData>>
+  ? SkipFirstArg<typeof useQuery<TVariables, TData>>
   : T extends Mutation<infer TVariables, infer TData>
-  ? SkipFirstArg<typeof mutationHook<TVariables, TData>>
+  ? SkipFirstArg<typeof useMutation<TVariables, TData>>
   : T extends State<infer TData>
   ? SkipFirstArg<typeof reactiveVarHook<TData>>
   : never;
@@ -40,18 +41,37 @@ export type CreateHooks = {
 const createHooks: CreateHooks = (meta: any, options?: any) => {
   const { prefix = "" } = options ?? {};
   const result: any = {};
-  Object.entries(meta).forEach(([key, value]) => {
+  const entries = Object.entries(meta);
+  const models = new Set<Model>();
+
+  const useInitModel = () => {
+    const client = useApolloClient();
+    if (models.size) {
+      models.forEach((model) => model.init(client));
+      models.clear();
+    }
+  };
+
+  entries.forEach(([key, value]) => {
     const hookName = `use${prefix}${key[0].toUpperCase()}${key.slice(1)}`;
     let hookImplement: Function | undefined;
 
     if (isQuery(value)) {
-      hookImplement = (...args: any[]) =>
-        (queryHook as Function)(value, ...args);
-    } else if (isMutation(value)) {
-      hookImplement = (...args: any[]) =>
-        (mutationHook as Function)(value, ...args);
-    } else if (isState(value)) {
+      models.add(value.model);
       hookImplement = (...args: any[]) => {
+        useInitModel();
+        return (useQuery as Function)(value, ...args);
+      };
+    } else if (isMutation(value)) {
+      models.add(value.model);
+      hookImplement = (...args: any[]) => {
+        useInitModel();
+        return useMutation(value, ...args);
+      };
+    } else if (isState(value)) {
+      models.add(value.model);
+      hookImplement = (...args: any[]) => {
+        useInitModel();
         const client = useApolloClient();
         let rv = useMemo(() => {
           value.model.init(client);

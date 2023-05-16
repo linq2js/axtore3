@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { NoInfer } from "../types";
+import type { NoInfer } from "../types";
 
 export type UseStable = {
   <T extends Record<string | number | symbol, any>>(unstable: T): Readonly<

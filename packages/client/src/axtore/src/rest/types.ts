@@ -1,4 +1,4 @@
-import { UriFunction } from "@apollo/client";
+import type { UriFunction } from "@apollo/client";
 
 export interface HttpOptions {
   /**

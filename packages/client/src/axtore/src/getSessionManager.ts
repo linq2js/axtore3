@@ -1,7 +1,7 @@
-import { ObservableQuery } from "@apollo/client";
+import type { ObservableQuery } from "@apollo/client";
 import { callbackGroup } from "./callbackGroup";
 import { getData } from "./getData";
-import { Client, SessionManager } from "./types";
+import type { Client, SessionManager } from "./types";
 
 const getSessionManager = (client: Client, group: any = {}, key: any = {}) => {
   return getData(client, group, key, () => {

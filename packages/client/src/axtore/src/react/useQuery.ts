@@ -1,15 +1,15 @@
-import {
+import type {
   ApolloError,
   ObservableQuery,
   OperationVariables,
-  useQuery as apolloUseQuery,
-  useApolloClient,
 } from "@apollo/client";
-import { NoInfer, Query, VariablesOptions, WithVariables } from "../types";
+import { useQuery as apolloUseQuery, useApolloClient } from "@apollo/client";
+import type { NoInfer, Query, VariablesOptions, WithVariables } from "../types";
 import { useRef, useState } from "react";
-
 import { useStable } from "./useStable";
 import { evictQuery } from "../evictQuery";
+import { refetchAllQueries } from "../refetchAllQueries";
+import { evictAllQueries } from "../evictAllQueries";
 
 export type UseQueryOptions<TData> = {
   onCompleted?: (data: TData) => void;
@@ -79,8 +79,14 @@ const useQuery = <TVariables, TData>(
       refetch() {
         return resultRef.current.refetch();
       },
+      refetchAll() {
+        refetchAllQueries(client, query);
+      },
       evict() {
         return evictQuery(client, query, customOptions.variables);
+      },
+      evictAll() {
+        evictAllQueries(client, query);
       },
       wait() {
         if (resultRef.current.error) {

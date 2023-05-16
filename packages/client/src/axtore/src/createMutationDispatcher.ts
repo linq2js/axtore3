@@ -1,4 +1,4 @@
-import { Client, Mutation } from "./types";
+import type { Client, Mutation } from "./types";
 import { handleFetchResult, wrapVariables } from "./util";
 
 const createMutationDispatcher = <TVariables, TData>(

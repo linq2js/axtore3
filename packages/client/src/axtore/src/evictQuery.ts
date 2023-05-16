@@ -1,6 +1,6 @@
 import { getQueryDefinition } from "@apollo/client/utilities";
 import { Kind } from "graphql";
-import { Client, Query } from "./types";
+import type { Client, Query } from "./types";
 
 const evictQuery = (client: Client, query: Query, variables: any = {}) => {
   const options = query.mergeOptions({ variables });

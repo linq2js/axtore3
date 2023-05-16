@@ -75,7 +75,14 @@ export type ExtrasContext = ContextBase;
 
 export type ContextBase = {
   readonly client: Client;
+  /**
+   * an shared object that persists across query calls
+   */
   readonly shared: any;
+  /**
+   * return lastData of the query/mutation
+   */
+  readonly lastData: any;
   use<TResult, TArgs extends any[]>(
     extras: Extras<TResult, TArgs>,
     ...args: TArgs
@@ -90,7 +97,7 @@ export type FieldContext<TContext, TMeta> = ContextBase &
   TContext &
   DispatcherMap<TMeta, { async: true; read: true }>;
 
-export type StateContext<TContext, TMeta> = ContextBase &
+export type StateContext<TContext, TMeta> = Omit<ContextBase, "lastData"> &
   TContext &
   DispatcherMap<TMeta, { read: true }>;
 
@@ -117,11 +124,24 @@ export type RootResolver<TContext, TArgs = any, TResult = any> = (
 export type ConcurrencyOptions = { debounce?: number; throttle?: number };
 
 export type QueryOptions = {
+  /**
+   * specify type name of dynamic mutation's returned value
+   */
   type?: string;
+  /**
+   * the query will do evict its data whenever its dependencies changed
+   * this makes the observable query / query hook do refetching immediately
+   * by default, the query does soft refetch and the refetching process runs in background, no loading status changed
+   */
   hardRefetch?: boolean;
 } & ConcurrencyOptions;
 
-export type MutationOptions = { type?: string } & ConcurrencyOptions;
+export type MutationOptions = {
+  /**
+   * specify type name of dynamic mutation's returned value
+   */
+  type?: string;
+} & ConcurrencyOptions;
 
 export type WithResolve<T extends (...args: any[]) => any> = {
   (...args: Parameters<T>): ReturnType<T>;
@@ -161,7 +181,22 @@ export type QueryDispatcher<
 > = WithResolve<Dispatcher<TVariables, TData>> &
   (TScopes extends { write: true }
     ? {
-        readonly refetch: Dispatcher<TVariables, TData>;
+        readonly refetch: Dispatcher<TVariables, TData> & {
+          /**
+           * refetch all queries that have same graphql document but different variables
+           */
+          all(): void;
+        };
+
+        /**
+         * remove the query data from the cache
+         */
+        readonly evict: Dispatcher<TVariables, TData> & {
+          /**
+           * evict all queries that have same graphql document but different variables
+           */
+          all(): void;
+        };
 
         /**
          * In normal, when we dispatch $queryName(),
@@ -170,11 +205,6 @@ export type QueryDispatcher<
          * In case of the query is static query, model does data fetching with no-cache policy.
          */
         readonly resolve: Dispatcher<TVariables, TData>;
-
-        /**
-         * remove the query data from the cache
-         */
-        readonly evict: Dispatcher<TVariables, TData>;
 
         /**
          * return true if the query is already fetched

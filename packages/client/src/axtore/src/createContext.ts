@@ -3,8 +3,8 @@ import { createMutationDispatcher } from "./createMutationDispatcher";
 import { createQueryDispatcher } from "./createQueryDispatcher";
 import { createStateDispatcher } from "./createStateDispatcher";
 import { evictQuery } from "./evictQuery";
-import { ApolloContext, QueryInfo, Session } from "./types";
-import { isMutation, isQuery, isState } from "./util";
+import type { ApolloContext, QueryInfo, Session } from "./types";
+import { EMPTY, isMutation, isQuery, isState } from "./util";
 
 const createContext = (
   originalContext: ApolloContext,
@@ -15,7 +15,8 @@ const createContext = (
   recomputeDerivedState?: VoidFunction,
   getSharedData?: () => any
 ) => {
-  let data: any;
+  let shared: any;
+  let lastData = EMPTY;
   const use = (extras: Function, ...args: any[]) =>
     extras(contextProxy, ...args);
   const resolvedProps = new Map<any, any>([
@@ -28,10 +29,17 @@ const createContext = (
     {
       get(_, p) {
         if (p === "shared") {
-          if (!data) {
-            data = getSharedData ? getSharedData() : {};
+          if (!shared) {
+            shared = getSharedData ? getSharedData() : {};
           }
-          return data;
+          return shared;
+        }
+
+        if (p === "lastData") {
+          if (lastData === EMPTY) {
+            lastData = getDerivedQuery?.()?.observable.getLastResult()?.data;
+          }
+          return lastData;
         }
 
         if (resolvedProps.has(p)) {

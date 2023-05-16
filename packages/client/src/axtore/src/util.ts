@@ -1,17 +1,24 @@
-import { State, LoadableSource, Mutation, ObjectType, Query } from "./types";
+import type {
+  State,
+  LoadableSource,
+  Mutation,
+  ObjectType,
+  Query,
+} from "./types";
 import { gql as originalGql } from "graphql-tag";
-import {
+import type {
   DefinitionNode,
   DocumentNode,
   FragmentDefinitionNode,
-  Kind,
   OperationDefinitionNode,
   OperationTypeNode,
   TypedQueryDocumentNode,
 } from "graphql";
+import { Kind } from "graphql";
 import { FetchResult } from "@apollo/client";
 
 const WRAPPED_VARIABLE_NAME = "__VARS__";
+const EMPTY = Symbol("empty");
 
 const enqueue = Promise.resolve().then.bind(Promise.resolve());
 
@@ -207,7 +214,6 @@ export {
   deferIf,
   is,
   delay,
-  forever,
   createProp,
   removeProp,
   enqueue,
@@ -220,6 +226,8 @@ export {
   untilSubscriptionNotifyingDone,
   wrapVariables,
   unwrapVariables,
-  WRAPPED_VARIABLE_NAME,
   handleFetchResult,
+  forever,
+  WRAPPED_VARIABLE_NAME,
+  EMPTY,
 };

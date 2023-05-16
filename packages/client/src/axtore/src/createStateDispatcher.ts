@@ -3,7 +3,7 @@ import { callbackGroup } from "./callbackGroup";
 import { createContext } from "./createContext";
 import { getSessionManager } from "./getSessionManager";
 import { getUpdatedData } from "./getUpdatedData";
-import { ApolloContext, Session, State } from "./types";
+import type { ApolloContext, Session, State } from "./types";
 import { createProp } from "./util";
 
 const createStateDispatcher = <TData>(

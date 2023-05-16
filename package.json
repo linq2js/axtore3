@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "lerna run dev",
+    "build": "lerna run build",
     "genTypes": "npx graphql-codegen --config ./scripts/codegen.js",
     "test": "jest"
   },

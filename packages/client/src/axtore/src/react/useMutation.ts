@@ -1,10 +1,9 @@
+import type { ApolloError, MutationHookOptions } from "@apollo/client";
 import {
-  ApolloError,
-  MutationHookOptions,
   useMutation as apolloUseMutation,
   useApolloClient,
 } from "@apollo/client";
-import { Mutation, NoInfer, VariablesArgs } from "../types";
+import type { Mutation, NoInfer, VariablesArgs } from "../types";
 import { useMemo, useRef } from "react";
 
 import { useStable } from "./useStable";

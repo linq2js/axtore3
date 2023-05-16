@@ -1,5 +1,5 @@
 import { generateName } from "./generateName";
-import { Model, State, StateContext } from "./types";
+import type { Model, State, StateContext } from "./types";
 
 const createState = <TContext, TMeta, TData>(
   model: Model<TContext, TMeta>,

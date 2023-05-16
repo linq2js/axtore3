@@ -4,9 +4,23 @@ import type {
   ObjectValueNode,
   OperationDefinitionNode,
 } from "graphql";
-import { FieldMappings } from "./types";
+import type { FieldMappings } from "./types";
 import { WRAPPED_VARIABLE_NAME } from "./util";
 
+/**
+ * this function uses to convert normal field selection to local field selection with @client directive. for example:
+ * ```js
+ * model()
+ *  .query('firstQuery', () => {})
+ *  .query('secondQuery', gql`query { firstQuery otherQuery }`)
+ * ```
+ * the selection `firstQuery` in `secondQuery` will be transformed to `firstQuery @client` because the firstQuery is registered as dynamic/local query
+ * so we don't need to add @client directive any more for registered queries/mutations
+ * `otherQuery` is assumed as server query
+ * @param document
+ * @param fieldMappings
+ * @returns
+ */
 const patchLocalFields = (
   document: DocumentNode,
   fieldMappings: FieldMappings

@@ -1,5 +1,5 @@
 import { getSessionManager } from "./getSessionManager";
-import { Client, Query } from "./types";
+import type { Client, Query } from "./types";
 
 const getObservableQuery = (
   client: Client,

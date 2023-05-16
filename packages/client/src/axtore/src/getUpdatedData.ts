@@ -1,5 +1,5 @@
 import produce from "immer";
-import { UpdateRecipe } from "./types";
+import type { UpdateRecipe } from "./types";
 
 const getUpdatedData = <T>(
   recipe: UpdateRecipe<T>,

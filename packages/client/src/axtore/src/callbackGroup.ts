@@ -1,4 +1,4 @@
-import { CallbackGroup } from "./types";
+import type { CallbackGroup } from "./types";
 
 const callbackGroup = (
   callbacks: Function[] = [],

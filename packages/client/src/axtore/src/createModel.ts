@@ -1,4 +1,4 @@
-import {
+import type {
   ApolloContext,
   Client,
   CreateModel,
@@ -8,16 +8,14 @@ import {
   ModelOptions,
   QueryOptions,
   RootResolver,
-  UpdateRecipe,
   Effect,
   MutationOptions,
   FieldMappings,
 } from "./types";
-import { DocumentNode } from "graphql";
+import type { DocumentNode } from "graphql";
 import { isState, isMutation, isQuery, unwrapVariables } from "./util";
 
 import { mergeDeep } from "@apollo/client/utilities";
-import produce from "immer";
 import { getData } from "./getData";
 import { concurrency } from "./concurrency";
 import { createState } from "./createState";
@@ -39,6 +37,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
   effects: Effect<TContext, TMeta>[] = [],
   fieldMappings: FieldMappings = {}
 ): Model<TContext, TMeta> => {
+  effects = effects.slice();
   const modelId = Symbol("model");
   const contextFactory: CustomContextFactory<TContext> =
     typeof modelOptions.context === "function"
@@ -313,7 +312,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
     },
     effect(...newEffects) {
       effects.push(...newEffects);
-      return this;
+      return model;
     },
     type(name, resolvers) {
       const resolverWrappers: Function[] = [];

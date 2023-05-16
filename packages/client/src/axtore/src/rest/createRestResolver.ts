@@ -1,9 +1,9 @@
-import { RootResolver } from "../types";
+import type { RootResolver } from "../types";
 
 import { REST_OPERATION_NAME } from "./RestLink";
-import { RestOptions } from "./types";
+import type { RestOptions } from "./types";
 import { generateName } from "../generateName";
-import gql from "graphql-tag";
+import { gql } from "../util";
 
 export type OptionsOrOptionsBuilder<TOptions, TVariables> =
   | TOptions

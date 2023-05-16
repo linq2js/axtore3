@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { model, gql } from "axtore";
 import { createHooks } from "axtore/react";
 import { SearchTerm } from "../types";
@@ -16,7 +16,7 @@ const appModel = model()
   // define static query
   .query(
     "fetchPosts",
-    // using `gql` function to convert normal graphql node to typed graphql node
+    // using `gql` function (imported from axtore) to convert normal graphql node to typed graphql node
     gql<{ term: SearchTerm }, { posts: { id: number; title: string }[] }>`
       query ($term: Any!) {
         posts(term: $term) @client
@@ -27,18 +27,25 @@ const appModel = model()
     "postList",
     async (_: void, { $term, $fetchPosts }) => {
       console.log("start searching");
-
       // get `term` state value and listen state changing event
       const term = $term();
-
-      // we might call other queries to prepare the input for `fetchPosts` query
-
       // call other query to fetch data
       const { posts } = await $fetchPosts({ term });
       return posts;
     },
-    { debounce: 1000, hardRefetch: true }
-  );
+    {
+      // perform hard refetch whenever the query dependencies changed
+      // with this way, the query hook can receive loading status notification
+      hardRefetch: true,
+      // in case of users type too fast, we delay query fetching in 300ms to avoid server hit many times
+      debounce: 300,
+    }
+  )
+  .effect(({ $postList }) => {
+    console.log("init model");
+    console.log("preload postList");
+    $postList();
+  });
 
 const { usePostList, useChangeTerm, useTerm } = createHooks(appModel.meta);
 
@@ -92,10 +99,21 @@ const FilterByUser = () => {
 
 const PostList = () => {
   const postList = usePostList().wait();
+
   return <pre>{JSON.stringify(postList, null, 2)}</pre>;
 };
 
-const App = () => {
+const SearchTermInfo = () => {
+  const term = useTerm();
+  return (
+    <>
+      <h2>Search Term</h2>
+      <pre>{JSON.stringify(term)}</pre>
+    </>
+  );
+};
+
+const SearchForm = () => {
   return (
     <>
       <FilterByText />
@@ -103,6 +121,39 @@ const App = () => {
       <Suspense fallback="Searching...">
         <PostList />
       </Suspense>
+    </>
+  );
+};
+
+const App = () => {
+  const [showSearchTerm, setShowSearchTerm] = useState(false);
+  const [showSearchForm, setShowSearchForm] = useState(false);
+
+  return (
+    <>
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            checked={showSearchTerm}
+            onChange={(e) => setShowSearchTerm(e.currentTarget.checked)}
+          />
+          Show Search Term. When SearchTermInfo rendered, the model effects are
+          triggered as well
+        </label>
+      </div>
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            checked={showSearchForm}
+            onChange={(e) => setShowSearchForm(e.currentTarget.checked)}
+          />
+          Show Search Form
+        </label>
+      </div>
+      {showSearchTerm && <SearchTermInfo />}
+      {showSearchForm && <SearchForm />}
     </>
   );
 };

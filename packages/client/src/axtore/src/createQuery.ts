@@ -1,5 +1,5 @@
-import { DocumentNode } from "graphql";
-import { Model, Query, QueryOptions, RootResolver } from "./types";
+import type { DocumentNode } from "graphql";
+import type { Model, Query, QueryOptions, RootResolver } from "./types";
 import { wrapVariables } from "./util";
 
 const createQuery = <TVariables, TData>(

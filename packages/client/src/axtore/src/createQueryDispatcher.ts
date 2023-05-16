@@ -1,12 +1,14 @@
 import produce from "immer";
 import { callbackGroup } from "./callbackGroup";
 import { concurrency } from "./concurrency";
+import { evictAllQueries } from "./evictAllQueries";
 import { evictQuery } from "./evictQuery";
 import { getObservableQuery } from "./getObservableQuery";
 import { getSessionManager } from "./getSessionManager";
 import { patchTypeIfPossible } from "./patchTypeIfPossible";
+import { refetchAllQueries } from "./refetchAllQueries";
 import { subscribeQueryChangeEvent } from "./subscribeQueryChangeEvent";
-import { Client, Query, QueryInfo, Session } from "./types";
+import type { Client, Query, QueryInfo, Session } from "./types";
 import { handleFetchResult, untilSubscriptionNotifyingDone } from "./util";
 
 const createQueryDispatcher = <TVariables, TData>(
@@ -62,9 +64,16 @@ const createQueryDispatcher = <TVariables, TData>(
       return data;
     },
     {
-      evict(variables: any) {
-        return evictQuery(client, query, variables);
-      },
+      evict: Object.assign(
+        (variables: any) => {
+          return evictQuery(client, query, variables);
+        },
+        {
+          all() {
+            evictAllQueries(client, query);
+          },
+        }
+      ),
       resolve(variables: any) {
         // call query resolver directly if possible
         if (query.resolver) {
@@ -73,11 +82,18 @@ const createQueryDispatcher = <TVariables, TData>(
         // unless call query with no-cache fetchPolicy
         return fetch(variables, true);
       },
-      async refetch(variables: any = {}) {
-        return handleFetchResult(
-          await getSessionManager(client, query.document, variables).refetch()
-        );
-      },
+      refetch: Object.assign(
+        async (variables: any = {}) => {
+          return handleFetchResult(
+            await getSessionManager(client, query.document, variables).refetch()
+          );
+        },
+        {
+          all() {
+            refetchAllQueries(client, query);
+          },
+        }
+      ),
       on(handlers: Record<string, Function>, variables: any) {
         const unsubscribe = callbackGroup();
 

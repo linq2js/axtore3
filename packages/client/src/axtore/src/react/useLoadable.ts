@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Loadable } from "../types";
+import type { Loadable } from "../types";
 
 const useLoadable = <T>(loadableSource: () => Loadable<T>) => {
   const rerender = useState({})[1];
