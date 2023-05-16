@@ -139,7 +139,7 @@ const App = () => {
             onChange={(e) => setShowSearchTerm(e.currentTarget.checked)}
           />
           Show Search Term. When SearchTermInfo rendered, the model effects are
-          triggered as well
+          triggered as well and postList query starts preloading
         </label>
       </div>
       <div>

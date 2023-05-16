@@ -38,7 +38,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
   fieldMappings: FieldMappings = {}
 ): Model<TContext, TMeta> => {
   effects = effects.slice();
-  const modelId = Symbol("model");
+  const id = Symbol("model");
   const contextFactory: CustomContextFactory<TContext> =
     typeof modelOptions.context === "function"
       ? (modelOptions.context as CustomContextFactory<TContext>)
@@ -46,11 +46,11 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
 
   const init = (client: Client) => {
     // already init for this client
-    if ((client as any)[modelId]) {
+    if ((client as any)[id]) {
       return;
     }
 
-    (client as any)[modelId] = true;
+    (client as any)[id] = true;
 
     let resolvers: any = {};
     let hasNewResolver = false;
@@ -236,6 +236,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
   };
 
   const model: Model<TContext, TMeta> = {
+    id,
     meta,
     effects,
     init,

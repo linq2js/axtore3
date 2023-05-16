@@ -279,6 +279,10 @@ export type Effect<TContext = {}, TMeta = {}> = (
 export type AtomOptions = { name?: string };
 
 export type Model<TContext = {}, TMeta = {}> = {
+  readonly id: Symbol;
+  readonly meta: TMeta;
+  readonly effects: Effect<TContext, TMeta>[];
+
   use<TOtherMeta>(meta: TOtherMeta): Model<TContext, TMeta & TOtherMeta>;
 
   query<TName extends string, TData, TVariables>(
@@ -342,9 +346,6 @@ export type Model<TContext = {}, TMeta = {}> = {
   ): Model<TContext, AddProp<TMeta, TType, TResolvers>>;
 
   effect(...fn: Effect<TContext, TMeta>[]): Model<TContext, TMeta>;
-
-  readonly meta: TMeta;
-  readonly effects: Effect<TContext, TMeta>[];
 
   init(client: Client): void;
 

@@ -43,45 +43,47 @@ const createHooks: CreateHooks = (meta: any, options?: any) => {
   const result: any = {};
   const entries = Object.entries(meta);
   const models = new Set<Model>();
+  const groupId = Symbol("hooks");
 
-  const useInitModel = () => {
+  const useInitGroup = () => {
     const client = useApolloClient();
-    if (models.size) {
+    // we use symbol to mark whether the group is connected or not
+    if (!(client as any)[groupId]) {
+      (client as any)[groupId] = true;
       models.forEach((model) => model.init(client));
-      models.clear();
     }
   };
 
   entries.forEach(([key, value]) => {
-    const hookName = `use${prefix}${key[0].toUpperCase()}${key.slice(1)}`;
-    let hookImplement: Function | undefined;
+    const name = `use${prefix}${key[0].toUpperCase()}${key.slice(1)}`;
+    let hook: Function | undefined;
 
     if (isQuery(value)) {
       models.add(value.model);
-      hookImplement = (...args: any[]) => {
-        useInitModel();
+      hook = (...args: any[]) => {
+        useInitGroup();
         return (useQuery as Function)(value, ...args);
       };
     } else if (isMutation(value)) {
       models.add(value.model);
-      hookImplement = (...args: any[]) => {
-        useInitModel();
+      hook = (...args: any[]) => {
+        useInitGroup();
         return useMutation(value, ...args);
       };
     } else if (isState(value)) {
       models.add(value.model);
-      hookImplement = (...args: any[]) => {
-        useInitModel();
+      hook = (...args: any[]) => {
+        useInitGroup();
         const client = useApolloClient();
-        let rv = useMemo(() => {
-          value.model.init(client);
+        const rv = useMemo(() => {
           return value.model.call(client, (x) => (x as any)["$" + key].rv);
         }, [client]);
         return (reactiveVarHook as Function)(rv, ...args);
       };
     }
-    if (hookImplement) {
-      result[hookName] = hookImplement;
+
+    if (hook) {
+      result[name] = hook;
     }
   });
   return result;

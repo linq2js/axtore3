@@ -15,7 +15,7 @@ Apollo client is powerful but it hard for new user. It takes much time to unders
 
 ## Core concepts
 
-- State: Where to store simple value or a computed value that will be updated whenever its dependency states update
+- State: Where to store simple value (synchronous value)
 - Query: Where to handle async data loading logic
 - Mutation: Where to handle async data updating logic
 - Effect: Where to handle side effects
@@ -225,6 +225,27 @@ appModel.call(client, (context) => {
 
 ### State dispatcher
 
+```ts
+model()
+  .state("count", 0)
+  .state("todos", [])
+  .mutation("increment", (args: void, { $count }) => {
+    // call state getter
+    console.log($count()); // 0
+    // call state setter
+    $count($count() + 1); // 1
+    // call state setter with reducer. the reducer receives a previous value and returns a new value
+    $count((prev) => prev + 1); // 2
+  })
+  .mutation("addTodo", (args: Todo, { $todos }) => {
+    // update state value using immer recipe
+    // axtore uses immer for state updating underneath
+    $todos((todos) => {
+      todos.push(args);
+    });
+  });
+```
+
 ### Query dispatcher
 
 ### Mutation dispatcher
@@ -274,11 +295,13 @@ Create a new model that includes the dynamic query definition
 
 The QueryOptions object has following props:
 
-- type(string): model will use this type name to patch \_\_typename to the data of dynamic query automatically
+- type(string): model will use this type name to assign \_\_typename to the data of dynamic query
 
 ```ts
 const appModel = model()
+  // type patching works with single object
   .query("todoDetails", () => ({ id: 1 }), { type: "Todo" })
+  // type patching works with array of object
   .query("todoList", () => [{ id: 1 }, { id: 2 }], { type: "Todo" });
 const { todoDetails } = await appModel.call(client, (x) => x.$todoDetails());
 const { todoList } = await appModel.call(client, (x) => x.$todoList());
