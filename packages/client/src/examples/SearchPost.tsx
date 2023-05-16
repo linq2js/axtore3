@@ -2,26 +2,24 @@ import { Suspense } from "react";
 import { model, gql, delay } from "axtore";
 import { createHooks } from "axtore/react";
 import { hardRefresh } from "axtore/extras/hardRefetch";
+import { SearchTerm } from "../types";
 
 const appModel = model()
   // define `term` state
-  .state("term", "")
+  .state("term", { searchIn: "title", text: "" } as SearchTerm)
   // define `changeTerm` dynamic mutation
-  .mutation("changeTerm", (args: { term: string }, { $term }) => {
+  .mutation("changeTerm", (args: Partial<SearchTerm>, { $term }) => {
     // set `term` state value
-    $term(args.term);
-    // if the search term is complex we can use immer to update its props
-    // $term((term) => {
-    //   term.prop = value;
-    //   term.nestedProps.prop = value;
-    // });
+    $term((term) => {
+      Object.assign(term, args);
+    });
   })
   // define static query
   .query(
     "fetchPosts",
     // using `gql` function to convert normal graphql node to typed graphql node
-    gql<{ term: string }, { posts: { id: number; title: string }[] }>`
-      query ($term: String!) {
+    gql<SearchTerm, { posts: { id: number; title: string }[] }>`
+      query ($term: Any!) {
         posts(term: $term) @client
       }
     `
@@ -38,21 +36,16 @@ const appModel = model()
     // get `term` state value and listen state changing event
     const term = $term();
 
-    // empty result for no term
-    if (!term) {
-      return [];
-    }
-
     // we might call other queries to prepare the input for `fetchPosts` query
 
     // call other query to fetch data
-    const { posts } = await $fetchPosts({ term });
+    const { posts } = await $fetchPosts(term);
     return posts;
   });
 
 const { usePostList, useChangeTerm, useTerm } = createHooks(appModel.meta);
 
-const SearchInput = () => {
+const FilterByText = () => {
   const term = useTerm();
   const changeTerm = useChangeTerm();
 
@@ -60,9 +53,33 @@ const SearchInput = () => {
     <p>
       <input
         type="text"
-        value={term}
-        onChange={(e) => changeTerm.mutate({ term: e.target.value })}
+        value={term.text}
+        onChange={(e) => changeTerm.mutate({ text: e.target.value })}
+        placeholder="Enter search term"
       />
+    </p>
+  );
+};
+
+const FilterByUser = () => {
+  const term = useTerm();
+  const changeTerm = useChangeTerm();
+
+  return (
+    <p>
+      <select
+        value={term.userId || 0}
+        onChange={(e) =>
+          changeTerm.mutate({ userId: parseInt(e.currentTarget.value, 10) })
+        }
+      >
+        <option value={0}>Any User</option>
+        {new Array(10).fill(0).map((_, index) => (
+          <option key={index} value={index + 1}>
+            User {index + 1}
+          </option>
+        ))}
+      </select>
     </p>
   );
 };
@@ -75,7 +92,8 @@ const PostList = () => {
 const App = () => {
   return (
     <>
-      <SearchInput />
+      <FilterByText />
+      <FilterByUser />
       <Suspense fallback="Searching...">
         <PostList />
       </Suspense>
