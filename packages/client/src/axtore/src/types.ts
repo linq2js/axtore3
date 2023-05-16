@@ -12,8 +12,6 @@ export type ObjectType =
 
 export type ApolloContext = { client: Client };
 
-export type ContextType = "mutation" | "query" | "state";
-
 export type NoInfer<T> = [T][T extends any ? 0 : never];
 
 export type Client<TCacheShape = any> = ApolloClient<TCacheShape>;
@@ -63,11 +61,18 @@ export type ModelOptions<TContext = {}> = {
   prefix?: string;
 };
 
+export type Extras<TResult = any, TArgs extends any[] = []> = (
+  context: ExtrasContext,
+  ...args: TArgs
+) => TResult;
+
+export type ExtrasContext = ContextBase;
+
 export type ContextBase = {
   client: Client;
   data: any;
   use<TResult, TArgs extends any[]>(
-    extras: (context: ContextBase, ...args: TArgs) => TResult,
+    extras: Extras<TResult, TArgs>,
     ...args: TArgs
   ): TResult;
 };

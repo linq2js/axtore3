@@ -3,6 +3,7 @@ import { model, gql, delay } from "axtore";
 import { createHooks } from "axtore/react";
 import { hardRefresh } from "axtore/extras/hardRefetch";
 import { SearchTerm } from "../types";
+import { debounce } from "axtore/extras/debounce";
 
 const appModel = model()
   // define `term` state
@@ -18,7 +19,7 @@ const appModel = model()
   .query(
     "fetchPosts",
     // using `gql` function to convert normal graphql node to typed graphql node
-    gql<SearchTerm, { posts: { id: number; title: string }[] }>`
+    gql<{ term: SearchTerm }, { posts: { id: number; title: string }[] }>`
       query ($term: Any!) {
         posts(term: $term) @client
       }
@@ -30,8 +31,10 @@ const appModel = model()
     // by using `hardRefresh` extras we force the query clean up its data before doing data fetching
     use(hardRefresh); // remove this line to see soft refresh effect
 
-    // delay execution in 500ms to make loading effect
-    await delay(500);
+    // in case of user types too fast, perform debouncing to avoid server hit many times
+    await use(debounce, 300);
+
+    console.log("start searching");
 
     // get `term` state value and listen state changing event
     const term = $term();
@@ -39,7 +42,7 @@ const appModel = model()
     // we might call other queries to prepare the input for `fetchPosts` query
 
     // call other query to fetch data
-    const { posts } = await $fetchPosts(term);
+    const { posts } = await $fetchPosts({ term });
     return posts;
   });
 
@@ -51,10 +54,19 @@ const FilterByText = () => {
 
   return (
     <p>
+      <select
+        value={term.searchIn}
+        onChange={(e) =>
+          changeTerm.mutate({ searchIn: e.currentTarget.value as any })
+        }
+      >
+        <option value="body">Body</option>
+        <option value="title">Title</option>
+      </select>
       <input
         type="text"
         value={term.text}
-        onChange={(e) => changeTerm.mutate({ text: e.target.value })}
+        onChange={(e) => changeTerm.mutate({ text: e.currentTarget.value })}
         placeholder="Enter search term"
       />
     </p>
