@@ -474,12 +474,12 @@ export type SkipFirstArg<T extends (...args: any) => any> = (
   ...args: SkipFirst<Parameters<T>>
 ) => ReturnType<T>;
 
-export type CallbackGroup = {
+export type CallbackGroup<T = void> = {
   /**
    * add callback into the group and return `remove` function
    * @param callback
    */
-  (callback: Function): VoidFunction;
+  (callback: (args: T) => void, once?: boolean): VoidFunction;
   called(): number;
   /**
    * call all callbacks with specified args
@@ -491,7 +491,7 @@ export type CallbackGroup = {
    */
   clear(): void;
   size(): number;
-  clone(): CallbackGroup;
+  clone(): CallbackGroup<T>;
   invokeAndClear(...args: any[]): void;
 };
 

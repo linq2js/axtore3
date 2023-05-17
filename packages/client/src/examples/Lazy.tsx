@@ -24,7 +24,10 @@ const appModel = model()
   .query("_private", () => 1)
   .query("time", (_: void, { lazy }) =>
     lazy(() => `Time: ${new Date().toISOString()}`, { interval: 1000 })
-  );
+  )
+  .effect(({ $time }) => {
+    $time.on({ change: (r) => console.log("time changed", r) });
+  });
 const { useTime, useMe } = createHooks(appModel.meta);
 
 const Me = () => {

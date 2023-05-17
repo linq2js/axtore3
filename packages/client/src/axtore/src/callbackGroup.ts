@@ -25,15 +25,25 @@ const callbackGroup = (
   };
 
   return Object.assign(
-    (callback: Function) => {
+    (callback: Function, once: boolean = false) => {
+      if (once) {
+        const original = callback;
+        callback = (...args: any[]) => {
+          unsubscribe();
+          return original(...args);
+        };
+      }
+
       callbacks.push(callback);
       let active = true;
-      return () => {
+      const unsubscribe = () => {
         if (!active) return;
         active = false;
         const index = callbacks.indexOf(callback);
         if (index !== -1) callbacks.splice(index, 1);
       };
+
+      return unsubscribe;
     },
     {
       size: () => callbacks.length,

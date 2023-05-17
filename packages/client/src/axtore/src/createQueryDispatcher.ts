@@ -7,7 +7,7 @@ import { getObservableQuery } from "./getObservableQuery";
 import { getSessionManager } from "./getSessionManager";
 import { patchTypeIfPossible } from "./patchTypeIfPossible";
 import { refetchAllQueries } from "./refetchAllQueries";
-import { subscribeQueryChangeEvent } from "./subscribeQueryChangeEvent";
+import { getQuerySubscriptionManager } from "./getQuerySubscriptionManager";
 import type { Client, Query, QueryInfo, Session } from "./types";
 import { handleFetchResult, untilSubscriptionNotifyingDone } from "./util";
 
@@ -35,25 +35,21 @@ const createQueryDispatcher = <TVariables, TData>(
             variables
           ).observableQuery;
           session.manager.onDispose(
-            subscribeQueryChangeEvent(
-              oq,
-              () => {
-                const qi = getDerivedQuery();
-                if (qi.query.options.hardRefetch) {
-                  concurrency(
-                    session.manager,
-                    qi.query.options.debounce ? qi.query.options : {},
-                    async () => {
-                      evictQuery(client, qi.query, variables);
-                    }
-                  );
-                  return;
-                }
+            getQuerySubscriptionManager(oq).onChange(() => {
+              const qi = getDerivedQuery();
+              if (qi.query.options.hardRefetch) {
+                concurrency(
+                  session.manager,
+                  qi.query.options.debounce ? qi.query.options : {},
+                  async () => {
+                    evictQuery(client, qi.query, variables);
+                  }
+                );
+                return;
+              }
 
-                qi.observable.refetch();
-              },
-              false
-            )
+              qi.observable.refetch();
+            })
           );
         });
       }
@@ -96,10 +92,8 @@ const createQueryDispatcher = <TVariables, TData>(
         if (handlers.change) {
           const oq = getObservableQuery(client, query, variables);
           unsubscribe(
-            subscribeQueryChangeEvent(
-              oq,
-              (result) => handlers.change(result),
-              false
+            getQuerySubscriptionManager(oq).onChange((result) =>
+              handlers.change(result)
             )
           );
         }
