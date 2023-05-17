@@ -162,8 +162,16 @@ export type RemovePrefix<
   TValue
 > = TValue extends `${TPrefix}${infer TRest}` ? TRest : TValue;
 
-export type NormalizeProps<T> = {
-  [key in keyof T as T[key] extends never ? never : key]: T[key];
+export type NormalizeProps<TObject> = {
+  [key in keyof TObject as TObject[key] extends never
+    ? never
+    : key]: TObject[key];
+};
+
+export type RemovePrivateProps<TObject, TPrivatePrefix extends string = "_"> = {
+  [key in keyof TObject as key extends `${TPrivatePrefix}${string}`
+    ? never
+    : key]: TObject[key];
 };
 
 export type DispatcherScopes = Partial<

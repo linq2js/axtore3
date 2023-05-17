@@ -18,6 +18,11 @@ export type UseQueryOptions<TData> = {
   context?: any;
 };
 
+export type Wait<T> = {
+  (): T;
+  (defaultValue: () => T): T;
+};
+
 const useQuery = <TVariables, TData>(
   query: Query<TVariables, TData>,
   ...args: NoInfer<

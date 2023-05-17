@@ -12,7 +12,7 @@ const appModel = model()
   .query("userProfile", () => ({ id: 1 }), { type: "Person" })
   .query(
     "me",
-    gql`
+    gql<void, { userProfile: { id: number; name: string } }>`
       query {
         userProfile {
           id
@@ -21,6 +21,7 @@ const appModel = model()
       }
     `
   )
+  .query("_private", () => 1)
   .query("time", (_: void, { lazy }) =>
     lazy(() => `Time: ${new Date().toISOString()}`, { interval: 1000 })
   );

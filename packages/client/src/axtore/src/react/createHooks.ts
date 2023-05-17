@@ -6,6 +6,7 @@ import type {
   State,
   NormalizeProps,
   Model,
+  RemovePrivateProps,
 } from "../types";
 import { useQuery } from "./useQuery";
 import { useMutation } from "./useMutation";
@@ -24,18 +25,20 @@ type InferHook<T> = T extends Query<infer TVariables, infer TData>
   ? SkipFirstArg<typeof reactiveVarHook<TData>>
   : never;
 
-type InferHooks<TMeta, TPrefix extends string = ""> = NormalizeProps<{
-  [key in `use${TPrefix}${Capitalize<keyof TMeta & string>}`]: InferHook<
-    TMeta[Uncapitalize<RemovePrefix<`use${TPrefix}`, key>> & keyof TMeta]
-  >;
-}>;
+type InferHooks<TMeta, TPrefix extends string = ""> = NormalizeProps<
+  {
+    [key in `use${TPrefix}${Capitalize<keyof TMeta & string>}`]: InferHook<
+      TMeta[Uncapitalize<RemovePrefix<`use${TPrefix}`, key>> & keyof TMeta]
+    >;
+  } & { [key in `use${TPrefix}Init`]: VoidFunction }
+>;
 
 export type CreateHooks = {
-  <TMeta>(meta: TMeta): InferHooks<TMeta>;
+  <TMeta>(meta: TMeta): InferHooks<RemovePrivateProps<TMeta>>;
   <TMeta, TPrefix extends string>(
     meta: TMeta,
     options: { prefix: TPrefix }
-  ): InferHooks<TMeta, TPrefix>;
+  ): InferHooks<RemovePrivateProps<TMeta>, TPrefix>;
 };
 
 const createHooks: CreateHooks = (meta: any, options?: any) => {
@@ -45,7 +48,7 @@ const createHooks: CreateHooks = (meta: any, options?: any) => {
   const models = new Set<Model>();
   const groupId = Symbol("hooks");
 
-  const useInitGroup = () => {
+  const useInit = () => {
     const client = useApolloClient();
     // we use symbol to mark whether the group is connected or not
     if (!(client as any)[groupId]) {
@@ -55,25 +58,26 @@ const createHooks: CreateHooks = (meta: any, options?: any) => {
   };
 
   entries.forEach(([key, value]) => {
+    if (key[0] === "_") return;
     const name = `use${prefix}${key[0].toUpperCase()}${key.slice(1)}`;
     let hook: Function | undefined;
 
     if (isQuery(value)) {
       models.add(value.model);
       hook = (...args: any[]) => {
-        useInitGroup();
+        useInit();
         return (useQuery as Function)(value, ...args);
       };
     } else if (isMutation(value)) {
       models.add(value.model);
       hook = (...args: any[]) => {
-        useInitGroup();
+        useInit();
         return useMutation(value, ...args);
       };
     } else if (isState(value)) {
       models.add(value.model);
       hook = (...args: any[]) => {
-        useInitGroup();
+        useInit();
         const client = useApolloClient();
         const rv = useMemo(() => {
           return value.model.call(client, (x) => (x as any)["$" + key].rv);
@@ -86,6 +90,9 @@ const createHooks: CreateHooks = (meta: any, options?: any) => {
       result[name] = hook;
     }
   });
+
+  result[`use${prefix}Init`] = useInit;
+
   return result;
 };
 
