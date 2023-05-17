@@ -4,6 +4,7 @@ import type {
   Mutation,
   ObjectType,
   Query,
+  Lazy,
 } from "./types";
 import { gql as originalGql } from "graphql-tag";
 import type {
@@ -28,10 +29,14 @@ const getType = (obj: any): ObjectType | "unknown" => {
   return type;
 };
 
-const isQuery = <TVariables = {} | undefined, TData = any>(
+const isQuery = <TVariables = any, TData = any>(
   obj: any
 ): obj is Query<TVariables, TData> => {
   return getType(obj) === "query";
+};
+
+const isLazy = <TData = any>(obj: any): obj is Lazy<TData> => {
+  return getType(obj) === "lazy";
 };
 
 const isMutation = <TVariables = {} | undefined, TData = any>(
@@ -210,6 +215,7 @@ export {
   isPromiseLike,
   isFunction,
   isLoadable,
+  isLazy,
   noop,
   deferIf,
   is,

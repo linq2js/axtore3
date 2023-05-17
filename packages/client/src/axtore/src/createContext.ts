@@ -1,10 +1,11 @@
 import { concurrency } from "./concurrency";
+import { createLazy } from "./createLazy";
 import { createMutationDispatcher } from "./createMutationDispatcher";
 import { createQueryDispatcher } from "./createQueryDispatcher";
 import { createStateDispatcher } from "./createStateDispatcher";
 import { evictQuery } from "./evictQuery";
 import type { ApolloContext, QueryInfo, Session } from "./types";
-import { EMPTY, isMutation, isQuery, isState } from "./util";
+import { delay, EMPTY, isMutation, isQuery, isState } from "./util";
 
 const createContext = (
   originalContext: ApolloContext,
@@ -23,6 +24,8 @@ const createContext = (
     ["use", use],
     ["context", originalContext],
     ["client", originalContext.client],
+    ["lazy", createLazy],
+    ["delay", delay],
   ]);
   const contextProxy = new Proxy(
     {},

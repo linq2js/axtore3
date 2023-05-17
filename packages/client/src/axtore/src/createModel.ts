@@ -26,6 +26,7 @@ import { patchLocalFields } from "./patchLocalFields";
 import { patchTypeIfPossible } from "./patchTypeIfPossible";
 import { getSessionManager } from "./getSessionManager";
 import { createContext } from "./createContext";
+import { handleLazyResult } from "./handleLazyResult";
 
 const createModel: CreateModel = (options = {}) => {
   return createModelInternal(options);
@@ -97,13 +98,20 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
                   undefined,
                   () => sessionManager.data
                 );
-                const data = await value.resolver?.(args, context);
+                const result = await handleLazyResult(
+                  client,
+                  session,
+                  "query",
+                  () => value.mergeOptions({ variables: args }),
+                  value.name,
+                  await value.resolver?.(args, context)
+                );
                 sessionManager.onLoad.invokeAndClear();
 
                 if (value.options.type) {
-                  return patchTypeIfPossible(data, value.options.type);
+                  return patchTypeIfPossible(result, value.options.type);
                 }
-                return data;
+                return result;
               });
             },
           },
@@ -166,8 +174,8 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
             ...resolvers,
             [typeName]: {
               ...resolvers[typeName],
-              [resolverName]: (
-                value: any,
+              [resolverName]: async (
+                parent: any,
                 args: any,
                 apolloContext: ApolloContext
               ) => {
@@ -179,7 +187,16 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
                   meta,
                   false
                 );
-                return resolver(value, args, context);
+                const result = await handleLazyResult(
+                  client,
+                  session,
+                  "type",
+                  () => client.cache.identify(parent),
+                  resolverName,
+                  await resolver(parent, args, context)
+                );
+                session.manager.onLoad.invokeAndClear();
+                return result;
               },
             },
           };

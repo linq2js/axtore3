@@ -20,12 +20,8 @@ const createQueryDispatcher = <TVariables, TData>(
 ) => {
   const fetch = async (variables: any, noCache: boolean = false) => {
     const oq = getObservableQuery(client, query, variables);
-
-    if (noCache) {
-      return handleFetchResult(await oq.refetch());
-    }
-
-    return handleFetchResult(await oq.result());
+    const result = noCache ? await oq.refetch() : await oq.result();
+    return handleFetchResult(result);
   };
 
   return Object.assign(
@@ -102,7 +98,7 @@ const createQueryDispatcher = <TVariables, TData>(
           unsubscribe(
             subscribeQueryChangeEvent(
               oq,
-              (result) => handlers.change(result.data),
+              (result) => handlers.change(result),
               false
             )
           );

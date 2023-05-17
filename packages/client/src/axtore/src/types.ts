@@ -83,6 +83,7 @@ export type ContextBase = {
    * return lastData of the query/mutation
    */
   readonly lastData: any;
+  delay(ms: number): Promise<void>;
   use<TResult, TArgs extends any[]>(
     extras: Extras<TResult, TArgs>,
     ...args: TArgs
@@ -91,11 +92,15 @@ export type ContextBase = {
 
 export type QueryContext<TContext, TMeta> = ContextBase &
   TContext &
-  DispatcherMap<TMeta, { async: true; read: true }>;
+  DispatcherMap<TMeta, { async: true; read: true }> & {
+    readonly lazy: LazyFactory;
+  };
 
 export type FieldContext<TContext, TMeta> = ContextBase &
   TContext &
-  DispatcherMap<TMeta, { async: true; read: true }>;
+  DispatcherMap<TMeta, { async: true; read: true }> & {
+    readonly lazy: LazyFactory;
+  };
 
 export type StateContext<TContext, TMeta> = Omit<ContextBase, "lastData"> &
   TContext &
@@ -114,12 +119,12 @@ export type FieldResolver<
   value: TValue,
   args: TArgs,
   context: ApolloContext & TContext
-) => TResult | Promise<TResult>;
+) => TResult | Promise<TResult> | Lazy<TResult>;
 
 export type RootResolver<TContext, TArgs = any, TResult = any> = (
   args: TArgs,
   context: TContext & ApolloContext
-) => TResult | Promise<TResult>;
+) => TResult | Promise<TResult> | Lazy<TResult>;
 
 export type ConcurrencyOptions = { debounce?: number; throttle?: number };
 
@@ -510,3 +515,17 @@ export type QueryInfo = {
   query: Query;
   observable: ObservableQuery;
 };
+
+export type Lazy<T = any> = {
+  readonly type: "lazy";
+  readonly options: LazyOptions;
+  data: () => T | Promise<T>;
+  loader(): T | Promise<T>;
+};
+
+export type LazyFactory = {
+  <T>(loader: Lazy<T>["loader"], options?: LazyOptions): Lazy<T>;
+  <T>(data: T, loader: Lazy<T>["loader"], options?: LazyOptions): Lazy<T>;
+};
+
+export type LazyOptions = { interval?: number };

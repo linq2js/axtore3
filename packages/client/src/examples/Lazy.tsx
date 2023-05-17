@@ -1,0 +1,45 @@
+import { gql, model } from "axtore";
+import { createHooks } from "axtore/react";
+
+const appModel = model()
+  .type("Person", {
+    name: (person, args, { lazy, delay }) =>
+      lazy("Loading...", async () => {
+        await delay(2000);
+        return Math.random().toString(16);
+      }),
+  })
+  .query("userProfile", () => ({ id: 1 }), { type: "Person" })
+  .query(
+    "me",
+    gql`
+      query {
+        userProfile {
+          id
+          name
+        }
+      }
+    `
+  )
+  .query("time", (_: void, { lazy }) =>
+    lazy(() => `Time: ${new Date().toISOString()}`, { interval: 1000 })
+  );
+const { useTime, useMe } = createHooks(appModel.meta);
+
+const Me = () => {
+  const me = useMe();
+  return <pre>{JSON.stringify(me.data)}</pre>;
+};
+
+const App = () => {
+  const time = useTime();
+
+  return (
+    <>
+      <div>{time.data?.time}</div>
+      <Me />
+    </>
+  );
+};
+
+export { App };
