@@ -2,7 +2,7 @@ import { ApolloProvider } from "@apollo/client";
 import { Loading } from "./components/Loading";
 import { Suspense } from "react";
 import { client } from "./client";
-import { App } from "./examples/Lazy";
+import { App } from "./examples/ErrorHandling";
 
 export default () => {
   return (

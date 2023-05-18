@@ -4,12 +4,20 @@ import type {
   OperationVariables,
 } from "@apollo/client";
 import { useQuery as apolloUseQuery, useApolloClient } from "@apollo/client";
-import type { NoInfer, Query, VariablesOptions, WithVariables } from "../types";
+import type {
+  Client,
+  NoInfer,
+  Query,
+  VariablesOptions,
+  WithVariables,
+} from "../types";
 import { useRef, useState } from "react";
 import { useStable } from "./useStable";
 import { evictQuery } from "../evictQuery";
 import { refetchAllQueries } from "../refetchAllQueries";
 import { evictAllQueries } from "../evictAllQueries";
+import { getObservableQuery } from "../getObservableQuery";
+import { getQuerySubscriptionManager } from "../getQuerySubscriptionManager";
 
 export type UseQueryOptions<TData> = {
   onCompleted?: (data: TData) => void;
@@ -101,7 +109,7 @@ const useQuery = <TVariables, TData>(
           resultRef.current.loading ||
           isLoading(resultRef.current.observable)
         ) {
-          throw wait(resultRef.current.observable);
+          wait(client, query, customOptions.variables);
         }
 
         return resultRef.current.data as TData;
@@ -117,27 +125,20 @@ const isLoading = <TVariables extends OperationVariables>(
   return result.loading || result.networkStatus === 4;
 };
 
-const wait = <TData>(observable: ObservableQuery<TData, any>) => {
+const wait = (client: Client, query: Query, variables: any) => {
+  const observable = getObservableQuery(client, query, variables);
   const result = observable.getCurrentResult();
+
   if (result.loading) {
-    return new Promise<TData>((resolve, reject) => {
-      const subscription = observable.subscribe((r) => {
-        if (r.loading) return;
-
-        subscription.unsubscribe();
-
-        if (r.error) {
-          reject(r.error);
-        } else {
-          resolve(r.data);
-        }
-      });
+    throw new Promise<void>((resolve) => {
+      const sm = getQuerySubscriptionManager(observable);
+      sm.onNext(resolve, true);
     });
   }
+
   if (result.error) {
-    return Promise.reject(result.error);
+    throw result.error;
   }
-  return Promise.resolve(result.data);
 };
 
 export { useQuery, wait };

@@ -1,6 +1,6 @@
 import { cleanFetchMocking, createClient, registerFetchMocking } from "../test";
 
-import { RestLink } from "./RestLink";
+import { RestLink } from "./restLink";
 import { from } from "@apollo/client";
 import { rest } from ".";
 import { createModel } from "../createModel";

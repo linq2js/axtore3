@@ -9,7 +9,7 @@ import {
 } from "@apollo/client";
 import { FetchMockStatic, MockRequest } from "fetch-mock";
 import { PropsWithChildren, createElement } from "react";
-import { RestLink, RestLinkOptions } from "../rest/RestLink";
+import { RestLink, RestLinkOptions } from "../rest/restLink";
 import { delay, isFunction } from "../util";
 
 import { Client } from "../types";

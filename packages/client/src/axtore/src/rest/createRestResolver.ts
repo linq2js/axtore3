@@ -1,6 +1,6 @@
 import type { RootResolver } from "../types";
 
-import { REST_OPERATION_NAME } from "./RestLink";
+import { REST_OPERATION_NAME } from "./restLink";
 import type { RestOptions } from "./types";
 import { generateName } from "../generateName";
 import { gql } from "../util";
