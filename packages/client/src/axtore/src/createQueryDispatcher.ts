@@ -7,16 +7,14 @@ import { getObservableQuery } from "./getObservableQuery";
 import { getSessionManager } from "./getSessionManager";
 import { patchTypeIfPossible } from "./patchTypeIfPossible";
 import { refetchAllQueries } from "./refetchAllQueries";
-import { getQuerySubscriptionManager } from "./getQuerySubscriptionManager";
-import type { Client, Query, QueryInfo, Session } from "./types";
+import type { Client, Query, Session } from "./types";
 import { handleFetchResult, untilSubscriptionNotifyingDone } from "./util";
 
 const createQueryDispatcher = <TVariables, TData>(
   client: Client,
   query: Query<TVariables, TData>,
   session: Session,
-  contextProxy: any,
-  getDerivedQuery?: () => QueryInfo
+  contextProxy: any
 ) => {
   const fetch = async (variables: any, noCache: boolean = false) => {
     const oq = getObservableQuery(client, query, variables);
@@ -27,7 +25,8 @@ const createQueryDispatcher = <TVariables, TData>(
   return Object.assign(
     async (variables: any) => {
       const data = await fetch(variables);
-      if (getDerivedQuery && session.isActive) {
+      const derivedQuery = session.manager.query;
+      if (derivedQuery && !derivedQuery.options.proactive && session.isActive) {
         session.manager.onLoad(() => {
           const oq = getSessionManager(
             client,
@@ -35,20 +34,18 @@ const createQueryDispatcher = <TVariables, TData>(
             variables
           ).observableQuery;
           session.manager.onDispose(
-            getQuerySubscriptionManager(oq).onChange(() => {
-              const qi = getDerivedQuery();
-              if (qi.query.options.hardRefetch) {
+            oq.onChange(() => {
+              if (derivedQuery.options.hardRefetch) {
                 concurrency(
                   session.manager,
-                  qi.query.options.debounce ? qi.query.options : {},
+                  derivedQuery.options.debounce ? derivedQuery.options : {},
                   async () => {
-                    evictQuery(client, qi.query, variables);
+                    evictQuery(client, derivedQuery, variables);
                   }
                 );
                 return;
               }
-
-              qi.observable.refetch();
+              session.manager.observableQuery.refetch();
             })
           );
         });
@@ -76,9 +73,11 @@ const createQueryDispatcher = <TVariables, TData>(
       },
       refetch: Object.assign(
         async (variables: any = {}) => {
-          return handleFetchResult(
-            await getSessionManager(client, query.document, variables).refetch()
-          );
+          const oq = getObservableQuery(client, query, variables);
+          // only refetch if the query is already fetched
+          if (oq.getLastResult()) {
+            return handleFetchResult(await oq.refetch());
+          }
         },
         {
           all() {
@@ -91,11 +90,7 @@ const createQueryDispatcher = <TVariables, TData>(
 
         if (handlers.change) {
           const oq = getObservableQuery(client, query, variables);
-          unsubscribe(
-            getQuerySubscriptionManager(oq).onChange((result) =>
-              handlers.change(result)
-            )
-          );
+          unsubscribe(oq.onChange((result) => handlers.change(result)));
         }
         return unsubscribe.invokeAndClear;
       },

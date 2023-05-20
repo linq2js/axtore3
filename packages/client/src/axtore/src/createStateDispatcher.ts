@@ -43,7 +43,6 @@ const createStateDispatcher = <TData>(
             newSession,
             meta,
             updatable,
-            undefined,
             recompute,
             () => sm.data
           );

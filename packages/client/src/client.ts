@@ -4,6 +4,7 @@ import { onError } from "@apollo/client/link/error";
 import { setContext } from "@apollo/client/link/context";
 import { SearchTerm } from "./types";
 import { delay } from "axtore";
+import { RestLink } from "axtore/rest";
 
 const authorizationLink = setContext((_, prev) => {
   return {
@@ -14,15 +15,19 @@ const authorizationLink = setContext((_, prev) => {
     },
   };
 });
+const restLink = new RestLink({
+  baseUrl: "https://jsonplaceholder.typicode.com",
+});
 const errorLink = onError((error) => {
-  console.log(error);
+  console.log("errorLink", error);
 });
 const httpLink = new HttpLink({ uri: "http://localhost:4000/" });
-const link = from([errorLink, authorizationLink, httpLink]);
+const link = from([errorLink, authorizationLink, restLink, httpLink]);
 const cache = new InMemoryCache();
 const client = new ApolloClient({
   cache,
   link,
+  defaultOptions: {},
   resolvers: {
     Query: {
       async posts(_, { term }: { term: SearchTerm }) {

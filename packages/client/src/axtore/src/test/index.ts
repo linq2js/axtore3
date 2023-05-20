@@ -8,12 +8,13 @@ import {
   from,
 } from "@apollo/client";
 import { FetchMockStatic, MockRequest } from "fetch-mock";
-import { PropsWithChildren, createElement } from "react";
+import { PropsWithChildren, createElement, Suspense } from "react";
 import { RestLink, RestLinkOptions } from "../rest/restLink";
 import { delay, isFunction } from "../util";
 
 import { Client } from "../types";
 import fetch from "cross-fetch";
+import { ErrorBoundary } from "react-error-boundary";
 
 const fetchMock = require("fetch-mock") as FetchMockStatic;
 
@@ -148,9 +149,36 @@ const registerFetchMocking = (
   }
 };
 
-const createWrapper = (client: Client) => {
-  return (props: PropsWithChildren<{}>) =>
-    createElement(ApolloProvider, { client, children: props.children });
+const createWrapper = (
+  client: Client,
+  {
+    onError,
+    onSuspense,
+  }: { onError?: (error: any) => void; onSuspense?: () => void } = {}
+) => {
+  return (props: PropsWithChildren<{}>) => {
+    let children = props.children;
+    if (onSuspense) {
+      const SuspenseFallback = () => {
+        onSuspense();
+        return null;
+      };
+      children = createElement(Suspense, {
+        fallback: createElement(SuspenseFallback),
+        children,
+      });
+    }
+
+    if (onError) {
+      children = createElement(ErrorBoundary, {
+        children,
+        onError,
+        fallbackRender: () => null,
+      });
+    }
+
+    return createElement(ApolloProvider, { client, children });
+  };
 };
 
 const cleanFetchMocking = () => {

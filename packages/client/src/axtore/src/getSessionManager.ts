@@ -1,7 +1,9 @@
-import type { ObservableQuery } from "@apollo/client";
 import { callbackGroup } from "./callbackGroup";
 import { getData } from "./getData";
-import type { Client, SessionManager } from "./types";
+import type { Client, EnhancedObservableQuery, SessionManager } from "./types";
+import { createProp } from "./util";
+
+const SUBSCRIPTIONS_PROP = Symbol("subscriptions");
 
 const getSessionManager = (client: Client, group: any = {}, key: any = {}) => {
   return getData(client, group, key, () => {
@@ -9,48 +11,72 @@ const getSessionManager = (client: Client, group: any = {}, key: any = {}) => {
     const data = {};
     const onDispose = callbackGroup();
     const onLoad = callbackGroup();
-    let observableQuery: ObservableQuery | undefined;
+    let observableQuery: EnhancedObservableQuery | undefined;
+    let disposed = false;
 
-    const sessionManager: SessionManager = {
+    const cleanup = () => {
+      // cleanup previous session
+      onDispose.invokeAndClear();
+      onLoad.invokeAndClear();
+    };
+
+    const sm: SessionManager = {
       key,
       onDispose,
       onLoad,
       data,
       get observableQuery() {
         if (!observableQuery) {
-          observableQuery = client.watchQuery({
+          const oq = client.watchQuery({
             query: group,
             variables: key,
             notifyOnNetworkStatusChange: true,
           });
+
+          const onChange = callbackGroup();
+          const onNext = callbackGroup();
+          let lastResult = oq.getLastResult();
+
+          oq.subscribe((result) => {
+            if (result.error || result.loading) return;
+            if (lastResult?.data === result.data) return;
+            lastResult = result;
+            onNext.invoke();
+            onChange.invoke(result.data);
+          }, onNext.invoke);
+
+          observableQuery = Object.assign(
+            oq,
+            createProp(oq, SUBSCRIPTIONS_PROP, () => {
+              return {
+                onChange,
+                onNext,
+              };
+            })
+          );
         }
         return observableQuery;
       },
-      evict() {
-        onDispose.invokeAndClear();
-        onLoad.invokeAndClear();
-      },
-      refetch() {
-        onDispose.invokeAndClear();
-        onLoad.invokeAndClear();
-        return sessionManager.observableQuery.refetch();
-      },
       start() {
+        disposed = false;
         let token = (currentToken = {});
-        // cleanup previous session
-        onDispose.invokeAndClear();
-        onLoad.invokeAndClear();
+        cleanup();
 
         return {
           get isActive() {
-            return token === currentToken;
+            return !disposed && token === currentToken;
           },
-          manager: sessionManager,
+          manager: sm,
           onDispose,
         };
       },
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        cleanup();
+      },
     };
-    return sessionManager;
+    return sm;
   });
 };
 

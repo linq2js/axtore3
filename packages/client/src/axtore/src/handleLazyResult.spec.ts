@@ -8,7 +8,7 @@ describe("query", () => {
     const client = createClient();
     const values = [1, 2, 3];
     const model = createModel()
-      .query("now", (args: void, { lazy, delay }) =>
+      .query("now", ({ lazy, delay }) =>
         lazy(values.shift(), async () => {
           await delay(10);
           return values.shift();

@@ -5,7 +5,7 @@ import { delay } from "../util";
 import React, { ReactNode, Suspense, useState } from "react";
 import { ApolloError } from "@apollo/client";
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
-import { createClient, createWrapper } from "../test";
+import { cleanFetchMocking, createClient, createWrapper } from "../test";
 import { Client } from "../types";
 import { render } from "@testing-library/react";
 
@@ -14,12 +14,13 @@ type ErrorArgs = { type: ErrorType };
 
 const QUERY_ERROR = "QUERY_ERROR";
 const NO_ERROR = "NO_ERROR";
-const HTTP_ERROR =
-  "request to http://invalid-uri.org/ failed, reason: getaddrinfo ENOTFOUND invalid-uri.org";
+const HTTP_ERROR = "Only absolute URLs are supported";
 
-const model = createModel()
-  .query("http", rest("INVALID_PATH"))
-  .query("hasError", async (args: { type: "query" | "http" }, { $http }) => {
+cleanFetchMocking();
+
+const model = createModel({ context: { rest } })
+  .query("http", ({ rest }) => rest("invalidPath"))
+  .query("hasError", async ({ $http }, args: { type: "query" | "http" }) => {
     if (args.type === "http") {
       return $http();
     }
@@ -53,10 +54,7 @@ const ErrorMessage = ({ error }: FallbackProps) => {
   return <div>{error.message}</div>;
 };
 
-const renderApp = (
-  app: ReactNode,
-  client: Client = createClient({ uri: "http://invalid-uri.org" })
-) => {
+const renderApp = (app: ReactNode, client: Client = createClient()) => {
   const Wrapper = createWrapper(client);
   return render(
     <Wrapper>

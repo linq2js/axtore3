@@ -1,12 +1,14 @@
 import { gql, model } from "axtore";
+import { print } from "graphql";
 import { createHooks } from "axtore/react";
+import { faker } from "@faker-js/faker";
 
 const appModel = model()
   .type("Person", {
-    name: (person, args, { lazy, delay }) =>
+    name: ({ lazy, delay }) =>
       lazy("Loading...", async () => {
         await delay(2000);
-        return Math.random().toString(16);
+        return faker.name.fullName();
       }),
   })
   .query("userProfile", () => ({ id: 1 }), { type: "Person" })
@@ -21,8 +23,7 @@ const appModel = model()
       }
     `
   )
-  .query("_private", () => 1)
-  .query("time", (_: void, { lazy }) =>
+  .query("time", ({ lazy }) =>
     lazy(() => `Time: ${new Date().toISOString()}`, { interval: 1000 })
   );
 

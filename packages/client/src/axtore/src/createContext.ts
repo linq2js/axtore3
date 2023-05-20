@@ -1,18 +1,19 @@
+import { all, race } from "./async";
 import { concurrency } from "./concurrency";
+import { createEventDispatcher } from "./createEventDispatcher";
 import { createLazy } from "./createLazy";
 import { createMutationDispatcher } from "./createMutationDispatcher";
 import { createQueryDispatcher } from "./createQueryDispatcher";
 import { createStateDispatcher } from "./createStateDispatcher";
 import { evictQuery } from "./evictQuery";
 import type { ApolloContext, QueryInfo, Session } from "./types";
-import { delay, EMPTY, isMutation, isQuery, isState } from "./util";
+import { delay, EMPTY, isEvent, isMutation, isQuery, isState } from "./util";
 
 const createContext = (
   originalContext: ApolloContext,
   session: Session,
   meta: any,
   updatable: boolean,
-  getDerivedQuery?: () => QueryInfo,
   recomputeDerivedState?: VoidFunction,
   getSharedData?: () => any
 ) => {
@@ -20,12 +21,15 @@ const createContext = (
   let lastData = EMPTY;
   const use = (extras: Function, ...args: any[]) =>
     extras(contextProxy, ...args);
+
   const resolvedProps = new Map<any, any>([
     ["use", use],
     ["context", originalContext],
     ["client", originalContext.client],
     ["lazy", createLazy],
     ["delay", delay],
+    ["all", all],
+    ["race", race],
   ]);
   const contextProxy = new Proxy(
     {},
@@ -40,7 +44,9 @@ const createContext = (
 
         if (p === "lastData") {
           if (lastData === EMPTY) {
-            lastData = getDerivedQuery?.()?.observable.getLastResult()?.data;
+            lastData = session.manager.query
+              ? session.manager.observableQuery.getLastResult()?.data
+              : undefined;
           }
           return lastData;
         }
@@ -58,8 +64,7 @@ const createContext = (
               originalContext.client,
               value,
               session,
-              contextProxy,
-              getDerivedQuery
+              contextProxy
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;
@@ -75,7 +80,17 @@ const createContext = (
             return dispatcher;
           }
 
+          if (isEvent(value)) {
+            const dispatcher = createEventDispatcher(
+              originalContext.client,
+              value
+            );
+            resolvedProps.set(p, dispatcher);
+            return dispatcher;
+          }
+
           if (isState(value)) {
+            const derivedQuery = session.manager.query;
             const dispatcher = createStateDispatcher(
               originalContext,
               value,
@@ -83,26 +98,29 @@ const createContext = (
               updatable,
               meta,
               recomputeDerivedState ??
-                (getDerivedQuery &&
-                  (() => {
-                    const qi = getDerivedQuery();
-                    if (qi.query.options.hardRefetch) {
-                      // we also apply concurrency for refetching logic
-                      concurrency(
-                        session.manager,
-                        qi.query.options.debounce ? qi.query.options : {},
-                        async () => {
-                          evictQuery(
-                            originalContext.client,
-                            qi.query,
-                            qi.observable.variables
-                          );
-                        }
-                      );
-                      return;
+                (derivedQuery && !derivedQuery.options.proactive
+                  ? () => {
+                      if (!session.isActive) return;
+                      if (derivedQuery.options.hardRefetch) {
+                        // we also apply concurrency for refetching logic
+                        concurrency(
+                          session.manager,
+                          derivedQuery.options.debounce
+                            ? derivedQuery.options
+                            : {},
+                          async () => {
+                            evictQuery(
+                              originalContext.client,
+                              derivedQuery,
+                              session.manager.observableQuery.variables
+                            );
+                          }
+                        );
+                        return;
+                      }
+                      session.manager.observableQuery.refetch();
                     }
-                    qi.observable.refetch();
-                  }))
+                  : undefined)
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;
@@ -110,7 +128,13 @@ const createContext = (
         }
 
         if (p in originalContext) {
-          const value = (originalContext as any)[p];
+          let value = (originalContext as any)[p];
+          if (
+            typeof value === "function" &&
+            (value as any).type === "dispatcher"
+          ) {
+            value = value(contextProxy);
+          }
           resolvedProps.set(p, value);
           return value;
         }

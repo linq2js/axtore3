@@ -1,5 +1,6 @@
 import { getQueryDefinition } from "@apollo/client/utilities";
 import { Kind } from "graphql";
+import { getSessionManager } from "./getSessionManager";
 import type { Client, Query } from "./types";
 
 const evictQuery = (client: Client, query: Query, variables: any = {}) => {
@@ -16,6 +17,7 @@ const evictQuery = (client: Client, query: Query, variables: any = {}) => {
         args: options.variables,
       });
     });
+    getSessionManager(client, query.document, options.variables).dispose();
     client.cache.gc();
   }
 };

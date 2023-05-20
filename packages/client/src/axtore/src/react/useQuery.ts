@@ -17,7 +17,6 @@ import { evictQuery } from "../evictQuery";
 import { refetchAllQueries } from "../refetchAllQueries";
 import { evictAllQueries } from "../evictAllQueries";
 import { getObservableQuery } from "../getObservableQuery";
-import { getQuerySubscriptionManager } from "../getQuerySubscriptionManager";
 
 export type UseQueryOptions<TData> = {
   onCompleted?: (data: TData) => void;
@@ -131,8 +130,7 @@ const wait = (client: Client, query: Query, variables: any) => {
 
   if (result.loading) {
     throw new Promise<void>((resolve) => {
-      const sm = getQuerySubscriptionManager(observable);
-      sm.onNext(resolve, true);
+      observable.onNext(resolve, true);
     });
   }
 

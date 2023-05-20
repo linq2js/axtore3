@@ -75,7 +75,7 @@ describe("dynamic query", () => {
     const client = createClient();
     const model = createModel().query(
       "doubledValue",
-      (args: { value: number }) => args.value * 2
+      (_, args: { value: number }) => args.value * 2
     );
     const { useDoubledValue } = createHooks(model.meta);
     const wrapper = createWrapper(client);

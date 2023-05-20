@@ -1,6 +1,6 @@
 import { createModel } from "./createModel";
 import { cleanFetchMocking, createClient } from "./test";
-import { untilSubscriptionNotifyingDone, gql } from "./util";
+import { untilSubscriptionNotifyingDone, gql, typed, delay } from "./util";
 
 cleanFetchMocking();
 
@@ -44,7 +44,7 @@ describe("query", () => {
 
   test("simple dynamic query", async () => {
     const client = createClient();
-    const model = createModel().query("count", (_: void) => 1);
+    const model = createModel().query("count", () => 1);
     const data = await model.call(client, ({ $count }) => $count());
     expect(data).toEqual({ count: 1 });
   });
@@ -53,7 +53,7 @@ describe("query", () => {
     const client = createClient();
     const model = createModel().query(
       "sum",
-      (args: { a: number; b: number }) => args.a + args.b
+      (_, args: { a: number; b: number }) => args.a + args.b
     );
     const data = await model.call(client, ({ $sum }) => $sum({ a: 1, b: 2 }));
     expect(data).toEqual({ sum: 3 });
@@ -90,7 +90,7 @@ describe("query", () => {
     const dataList = [1, 2, 3];
     const model = createModel()
       .query("count", () => dataList.shift() ?? 0)
-      .query("doubledCount", async (_: void, { $count }) => {
+      .query("doubledCount", async ({ $count }) => {
         calls++;
         const { count } = await $count();
         return count * 2;
@@ -111,11 +111,11 @@ describe("query", () => {
   test("multiple dynamic queries", async () => {
     const client = createClient();
     const model = createModel()
-      .query("value1", (_: void) => 1)
-      .query("value2", (_: void) => 2)
+      .query("value1", () => 1)
+      .query("value2", () => 2)
       .query(
         "sum",
-        async (_: void, { $value1, $value2 }) =>
+        async ({ $value1, $value2 }) =>
           (await $value1()).value1 + (await $value2()).value2
       );
 
@@ -125,7 +125,7 @@ describe("query", () => {
 
   test("update query with plain object", async () => {
     const client = createClient();
-    const model = createModel().query("count", (args: void) => 1);
+    const model = createModel().query("count", () => 1);
     const d1 = await model.call(client, ({ $count }) => $count());
     const d2 = await model.call(client, async ({ $count }) => {
       await $count.set({ count: 2 });
@@ -141,7 +141,7 @@ describe("query", () => {
 
   test("update query with recipe", async () => {
     const client = createClient();
-    const model = createModel().query("count", (args: void) => 1);
+    const model = createModel().query("count", () => 1);
     const d1 = await model.call(client, ({ $count }) => $count());
     const d2 = await model.call(client, async ({ $count }) => {
       $count.set((prev) => {
@@ -163,7 +163,7 @@ describe("model", () => {
     const client = createClient();
     const model = baseModel
       .use(baseModel.meta)
-      .query("doubledCount", async (_: void, { $count }) => {
+      .query("doubledCount", async ({ $count }) => {
         const { count } = await $count();
         return count * 2;
       });
@@ -180,7 +180,7 @@ describe("model", () => {
     const otherModel = createModel().query("factor", () => 2);
     const model = baseModel
       .use({ ...baseModel.meta, ...otherModel.meta })
-      .query("doubledCount", async (_: void, { $count, $factor }) => {
+      .query("doubledCount", async ({ $count, $factor }) => {
         const [{ count }, { factor }] = await Promise.all([
           $count(),
           $factor(),
@@ -265,7 +265,7 @@ describe("effect", () => {
     let changes = 0;
     const client = createClient();
     const model = createModel()
-      .query("count", (args: void) => 1)
+      .query("count", () => 1)
       .effect(({ $count }) => {
         $count.on({ change: () => changes++ });
       });
@@ -318,7 +318,7 @@ describe("compound testing", () => {
     const client = createClient();
     const counterModel = createModel()
       .state("count", 1)
-      .mutation("increment", (args: void, { $count }) => {
+      .mutation("increment", ({ $count }) => {
         $count((prev) => prev + 1);
       });
 
@@ -331,16 +331,13 @@ describe("compound testing", () => {
   });
 });
 
-describe("data", () => {
-  test("data object must be persisted between mutation dispatches", async () => {
+describe("shared", () => {
+  test("shared data must be persisted between mutation dispatches", async () => {
     const client = createClient();
-    const model = createModel().mutation(
-      "increment",
-      (_: void, { shared: data }) => {
-        data.count = (data.count ?? 0) + 1;
-        return data.count as number;
-      }
-    );
+    const model = createModel().mutation("increment", ({ shared }) => {
+      shared.count = (shared.count ?? 0) + 1;
+      return shared.count as number;
+    });
     const d1 = await model.call(client, (x) => x.$increment());
     const d2 = await model.call(client, (x) => x.$increment());
     const d3 = await model.call(client, (x) => x.$increment());
@@ -350,3 +347,132 @@ describe("data", () => {
     expect(d3).toEqual({ increment: 3 });
   });
 });
+
+describe("event", () => {
+  test("simple event", async () => {
+    const fired = jest.fn();
+    const client = createClient();
+    const model = createModel().event("clicked");
+    model.call(client, (x) => {
+      x.$clicked().then(fired);
+    });
+    model.call(client, (x) => x.$clicked.fire());
+    await untilSubscriptionNotifyingDone();
+    expect(fired).toBeCalled();
+  });
+
+  test("typed event", async () => {
+    let sum = 0;
+    const client = createClient();
+    const model = createModel().event("clicked", typed<number>);
+    model.call(client, (x) => {
+      x.$clicked.on((value) => (sum += value));
+    });
+    model.call(client, async ({ $clicked }) => {
+      // should wait until the event is fired completely
+      await $clicked.fire(1);
+      await $clicked.fire(2);
+      await $clicked.fire(4);
+      await $clicked.fire(8);
+    });
+    await untilSubscriptionNotifyingDone();
+    expect(sum).toBe(15);
+  });
+
+  test("firedOnce", async () => {
+    const client = createClient();
+    const model = createModel().event("loaded", typed<number>);
+    await model.call(client, async (x) => {
+      // try fire loaded event multiple times
+      await x.$loaded.fireOnce(1);
+      await x.$loaded.fire(2);
+      await x.$loaded.fire(3);
+    });
+    const data = model.call(client, (x) => x.$loaded.last());
+    // even though the event is fired multiple times but the latest args is still the first time args
+    expect(data).toBe(1);
+  });
+
+  test("pausing", async () => {
+    let triggered = 0;
+    const client = createClient();
+    const model = createModel()
+      .event("clicked")
+      .effect((x) => x.$clicked.on(() => triggered++));
+
+    await model.call(client, async (x) => {
+      await x.$clicked.fire();
+      x.$clicked.pause();
+      await x.$clicked.fire();
+      await x.$clicked.fire();
+      await x.$clicked.fire();
+      x.$clicked.resume();
+      await x.$clicked.fire();
+    });
+
+    expect(triggered).toBe(2);
+  });
+
+  test("all", async () => {
+    const client = createClient();
+    const model = createModel()
+      .event("a", typed<number>)
+      .event("b", typed<boolean>);
+    let values: any[] = [];
+
+    model.call(client, async ({ $a, $b, all }) => {
+      const [a, b] = await all($a, $b);
+      values = [a, b];
+    });
+
+    await model.call(client, ({ $a }) => $a.fire(1));
+    expect(values).toEqual([]);
+    await model.call(client, ({ $b }) => $b.fire(true));
+    await untilSubscriptionNotifyingDone();
+    expect(values).toEqual([1, true]);
+  });
+
+  test("all: cancelled", async () => {
+    const client = createClient();
+    const model = createModel()
+      .event("a", typed<number>)
+      .event("b", typed<boolean>);
+    let values: any[] = [];
+    let cancel: VoidFunction | undefined;
+
+    model.call(client, async ({ $a, $b, all }) => {
+      const promise = all($a, $b);
+      cancel = promise.cancel;
+      const [a, b] = await promise;
+      values = [a, b];
+    });
+
+    await model.call(client, ({ $a }) => $a.fire(1));
+    expect(values).toEqual([]);
+    cancel?.();
+    await model.call(client, ({ $b }) => $b.fire(true));
+    await delay(10);
+    expect(values).toEqual([]);
+  });
+
+  test("race", async () => {
+    const client = createClient();
+    const model = createModel()
+      .event("a", typed<number>)
+      .event("b", typed<boolean>);
+    let result: any;
+
+    model.call(client, async ({ $a, $b, race }) => {
+      result = await race($a, $b);
+    });
+
+    await model.call(client, ({ $a }) => $a.fire(1));
+    await untilSubscriptionNotifyingDone();
+    expect(result).toBe(1);
+    await model.call(client, ({ $b }) => $b.fire(true));
+    await untilSubscriptionNotifyingDone();
+    expect(result).toBe(1);
+  });
+});
+
+describe("context", () => {});

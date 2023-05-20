@@ -5,6 +5,7 @@ import type {
   ObjectType,
   Query,
   Lazy,
+  Event,
 } from "./types";
 import { gql as originalGql } from "graphql-tag";
 import type {
@@ -33,6 +34,10 @@ const isQuery = <TVariables = any, TData = any>(
   obj: any
 ): obj is Query<TVariables, TData> => {
   return getType(obj) === "query";
+};
+
+const isEvent = <TArgs = any>(obj: any): obj is Event<TArgs> => {
+  return getType(obj) === "event";
 };
 
 const isLazy = <TData = any>(obj: any): obj is Lazy<TData> => {
@@ -173,8 +178,16 @@ const forEach = <T>(
   return (Array.isArray(values) ? values : [values]).forEach(callback);
 };
 
-const typed = <TVariables, TData>(document: DocumentNode) =>
-  document as TypedQueryDocumentNode<TData, TVariables>;
+export type Typed = {
+  <TVariables, TData>(document: DocumentNode): TypedQueryDocumentNode<
+    TData,
+    TVariables
+  >;
+
+  <T>(): { __type__: T };
+};
+
+const typed: Typed = (...args: any[]) => args[0];
 
 const gql = <TVariables = any, TData = any>(
   ...args: Parameters<typeof originalGql>
@@ -209,6 +222,7 @@ const handleFetchResult = <T>(result: FetchResult<T>) => {
 
 export {
   getType,
+  isEvent,
   isQuery,
   isMutation,
   isState,

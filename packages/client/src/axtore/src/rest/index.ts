@@ -1,2 +1,2 @@
+export { createRestDispatcher as rest } from "./createRestDispatcher";
 export * from "./restLink";
-export { createRestResolver as rest } from "./createRestResolver";

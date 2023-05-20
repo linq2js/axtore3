@@ -254,7 +254,9 @@ const createRestLink = (options: RestLinkOptions) => {
             });
             observer.complete();
           })
-          .catch((err) => handleError(err, observer));
+          .catch((err) => {
+            handleError(err, observer);
+          });
 
         return () => {
           // XXX support canceling this request

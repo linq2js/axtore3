@@ -6,21 +6,25 @@ import type {
   State,
   NormalizeProps,
   Model,
+  Event,
   RemovePrivateProps,
 } from "../types";
 import { useQuery } from "./useQuery";
 import { useMutation } from "./useMutation";
-import { isState, isMutation, isQuery } from "../util";
+import { isState, isMutation, isQuery, isEvent } from "../util";
 import {
   useApolloClient,
   useReactiveVar as reactiveVarHook,
 } from "@apollo/client";
 import { useMemo } from "react";
+import { useEvent } from "./useEvent";
 
 type InferHook<T> = T extends Query<infer TVariables, infer TData>
   ? SkipFirstArg<typeof useQuery<TVariables, TData>>
   : T extends Mutation<infer TVariables, infer TData>
   ? SkipFirstArg<typeof useMutation<TVariables, TData>>
+  : T extends Event<infer TArgs>
+  ? SkipFirstArg<typeof useEvent<TArgs>>
   : T extends State<infer TData>
   ? SkipFirstArg<typeof reactiveVarHook<TData>>
   : never;
@@ -83,6 +87,12 @@ const createHooks: CreateHooks = (meta: any, options?: any) => {
           return value.model.call(client, (x) => (x as any)["$" + key].rv);
         }, [client]);
         return (reactiveVarHook as Function)(rv, ...args);
+      };
+    } else if (isEvent(value)) {
+      models.add(value.model);
+      hook = (...args: any[]) => {
+        useInit();
+        return useEvent(value, ...args);
       };
     }
 

@@ -13,7 +13,8 @@ export type ObjectType =
   | "mutation"
   | "lazy"
   | "loadable"
-  | "model";
+  | "model"
+  | "event";
 
 export type ApolloContext = { client: Client };
 
@@ -21,13 +22,35 @@ export type NoInfer<T> = [T][T extends any ? 0 : never];
 
 export type Client<TCacheShape = any> = ApolloClient<TCacheShape>;
 
+export type Event<TArgs = any> = {
+  readonly type: "event";
+  readonly name: string;
+  readonly model: Model<any, any>;
+};
+
+export type EventDispatcher<TArgs> = {
+  (): Promise<TArgs>;
+  last(): TArgs | undefined;
+  any(): Promise<TArgs>;
+  fire(args: TArgs): Promise<void>;
+  fireOnce(args: TArgs): Promise<void>;
+  pause(): void;
+  resume(): void;
+  paused(): boolean;
+  /**
+   * listen the event multiple times
+   * @param listener
+   */
+  on(listener: (args: TArgs) => void): VoidFunction;
+};
+
 export type Query<TVariables = any, TData = any> = {
-  type: "query";
-  name: string;
-  document: DocumentNode;
-  resolver?: RootResolver<any, TVariables, TData>;
-  model: Model<any, any>;
-  options: QueryOptions;
+  readonly type: "query";
+  readonly name: string;
+  readonly document: DocumentNode;
+  readonly resolver?: RootResolver<any, TVariables, TData>;
+  readonly model: Model<any, any>;
+  readonly options: QueryOptions;
   mergeOptions(options?: any): any;
 };
 
@@ -37,18 +60,18 @@ export type OperationEvents<TVariables, TData> = {
 };
 
 export type Mutation<TVariables = any, TData = any> = {
-  type: "mutation";
-  name: string;
-  document: DocumentNode;
-  resolver?: RootResolver<any, TVariables, TData>;
-  model: Model<any, any>;
-  options: QueryOptions;
+  readonly type: "mutation";
+  readonly name: string;
+  readonly document: DocumentNode;
+  readonly resolver?: RootResolver<any, TVariables, TData>;
+  readonly model: Model<any, any>;
+  readonly options: QueryOptions;
   mergeOptions(options?: any): any;
 };
 
 export type TypeResolverSet<TResolvers = any> = {
-  type: "type";
-  resolvers: TResolvers;
+  readonly type: "type";
+  readonly resolvers: TResolvers;
 };
 
 export type AddProp<TModel, TProp extends string, TValue> = TModel & {
@@ -71,9 +94,21 @@ export type Extras<TResult = any, TArgs extends any[] = []> = (
   ...args: TArgs
 ) => TResult;
 
+export type Listenable<T = void> = (
+  listener: (args: T) => void
+) => VoidFunction;
+
 export type ExtrasContext = ContextBase;
 
 export type ContextBase = {
+  /**
+   * original context
+   */
+  readonly context: any;
+
+  /**
+   * Apollo client
+   */
   readonly client: Client;
   /**
    * an shared object that persists across query calls
@@ -84,30 +119,80 @@ export type ContextBase = {
    */
   readonly lastData: any;
   delay(ms: number): Promise<void>;
+  /**
+   * call the extras and forward all args to it
+   * @param extras
+   * @param args
+   */
   use<TResult, TArgs extends any[]>(
     extras: Extras<TResult, TArgs>,
     ...args: TArgs
   ): TResult;
+
+  set<T>(target: T | T[]): void;
+  set<T>(
+    target: T | T[],
+    fields: { [key in keyof T]?: T[key] | UpdateRecipe<T[key]> }
+  ): void;
+
+  all<TTargets extends (Promise<any> | ((onCancel: Listenable) => any))[]>(
+    ...targets: TTargets
+  ): CancellablePromise<{
+    [key in keyof TTargets]: TTargets[key] extends Promise<infer T>
+      ? T
+      : TTargets[key] extends (
+          onCancel: Listenable
+        ) => Promise<infer T> | infer T
+      ? T
+      : never;
+  }>;
+
+  race<TTargets extends (Promise<any> | ((onCancel: Listenable) => any))[]>(
+    ...targets: TTargets
+  ): CancellablePromise<
+    InferArrayType<{
+      [key in keyof TTargets]: TTargets[key] extends Promise<infer T>
+        ? T
+        : TTargets[key] extends (
+            onCancel: Listenable
+          ) => Promise<infer T> | infer T
+        ? T
+        : never;
+    }>
+  >;
+};
+
+export type InferArrayType<T> = T extends Array<infer I> ? I : any;
+
+export type CancellablePromise<T> = Promise<T> & { cancel(): void };
+
+export type InferCustomContext<TContext> = {
+  [key in keyof TContext]: TContext[key] extends {
+    (context: ContextBase): (...args: any[]) => any;
+    type: "dispatcher";
+  }
+    ? ReturnType<TContext[key]>
+    : TContext[key];
 };
 
 export type QueryContext<TContext, TMeta> = ContextBase &
-  TContext &
+  InferCustomContext<TContext> &
   DispatcherMap<TMeta, { async: true; read: true }> & {
     readonly lazy: LazyFactory;
   };
 
 export type FieldContext<TContext, TMeta> = ContextBase &
-  TContext &
+  InferCustomContext<TContext> &
   DispatcherMap<TMeta, { async: true; read: true }> & {
     readonly lazy: LazyFactory;
   };
 
 export type StateContext<TContext, TMeta> = Omit<ContextBase, "lastData"> &
-  TContext &
+  InferCustomContext<TContext> &
   DispatcherMap<TMeta, { read: true }>;
 
 export type MutationContext<TContext, TMeta> = ContextBase &
-  TContext &
+  InferCustomContext<TContext> &
   DispatcherMap<TMeta, { async: true; read: true; write: true }>;
 
 export type FieldResolver<
@@ -116,21 +201,21 @@ export type FieldResolver<
   TArgs = any,
   TResult = any
 > = (
-  value: TValue,
+  context: ApolloContext & InferCustomContext<TContext>,
   args: TArgs,
-  context: ApolloContext & TContext
+  value: TValue
 ) => TResult | Promise<TResult> | Lazy<TResult>;
 
 export type RootResolver<TContext, TArgs = any, TResult = any> = (
-  args: TArgs,
-  context: TContext & ApolloContext
+  context: TContext & ApolloContext,
+  args: TArgs
 ) => TResult | Promise<TResult> | Lazy<TResult>;
 
 export type ConcurrencyOptions = { debounce?: number; throttle?: number };
 
 export type QueryOptions = {
   /**
-   * specify type name of dynamic mutation's returned value
+   * specify type name of dynamic query's returned value
    */
   type?: string;
   /**
@@ -139,6 +224,10 @@ export type QueryOptions = {
    * by default, the query does soft refetch and the refetching process runs in background, no loading status changed
    */
   hardRefetch?: boolean;
+  /**
+   * by default, query has reactive mode, when query's dependencies updated the query does refetching as well. if proactive = true, the query does nothing
+   */
+  proactive?: boolean;
 } & ConcurrencyOptions;
 
 export type MutationOptions = {
@@ -265,6 +354,8 @@ export type InferDispatcher<
     ? QueryDispatcher<TScopes, TVariables, TData>
     : T extends Mutation<infer TVariables, infer TData>
     ? MutationDispatcher<TVariables, TData>
+    : T extends Event<infer TArgs>
+    ? EventDispatcher<TArgs>
     : never
   : never;
 
@@ -282,7 +373,7 @@ export type State<TData = any> = {
   type: "state";
   model: Model<any, any>;
   name: string;
-  initial: TData | ((context: StateContext<any, any>) => TData);
+  initial: TData | ((context: any) => TData);
 };
 
 export type Effect<TContext = {}, TMeta = {}> = (
@@ -317,7 +408,16 @@ export type Model<TContext = {}, TMeta = {}> = {
     AddProp<TMeta, TAlias, Query<TVariables, { [key in TAlias]: TData }>>
   >;
 
-  query<TName extends string, TVariables, TData>(
+  event<TName extends string, TArgs = void>(
+    name: TName
+  ): Model<TContext, AddProp<TMeta, TName, Event<TArgs>>>;
+
+  event<TName extends string, TArgs = void>(
+    name: TName,
+    args: () => { __type__: TArgs }
+  ): Model<TContext, AddProp<TMeta, TName, Event<TArgs>>>;
+
+  query<TName extends string, TVariables = void, TData = any>(
     name: TName,
     resolver: RootResolver<QueryContext<TContext, TMeta>, TVariables, TData>,
     options?: QueryOptions
@@ -326,12 +426,12 @@ export type Model<TContext = {}, TMeta = {}> = {
     AddProp<TMeta, TName, Query<TVariables, { [key in TName]: TData }>>
   >;
 
-  mutation<TName extends string, TData, TVariables>(
+  mutation<TName extends string, TVariables = any, TData = void>(
     name: TName,
     document: TypedQueryDocumentNode<TData, TVariables>
   ): Model<TContext, AddProp<TMeta, TName, Mutation<TVariables, TData>>>;
 
-  mutation<TName extends string, TVariables, TData>(
+  mutation<TName extends string, TVariables = any, TData = void>(
     name: TName,
     resolver: RootResolver<MutationContext<TContext, TMeta>, TVariables, TData>,
     options?: MutationOptions
@@ -495,18 +595,24 @@ export type CallbackGroup<T = void> = {
   invokeAndClear(...args: any[]): void;
 };
 
+export type EnhancedObservableQuery = ObservableQuery & {
+  readonly onChange: CallbackGroup;
+  readonly onNext: CallbackGroup;
+};
+
 export type SessionManager = {
   readonly key: any;
   /**
    * this uses for query session only
    */
-  readonly observableQuery: ObservableQuery;
+  readonly observableQuery: EnhancedObservableQuery;
   readonly data: any;
   start(): Session;
+  dispose(): void;
   onLoad: CallbackGroup;
   onDispose: CallbackGroup;
-  evict(): void;
-  refetch(): Promise<ApolloQueryResult<any>>;
+  query?: Query;
+  mutation?: Mutation;
 };
 
 export type Session = {

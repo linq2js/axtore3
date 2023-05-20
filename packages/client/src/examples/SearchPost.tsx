@@ -7,7 +7,7 @@ const appModel = model()
   // define `term` state
   .state("term", { searchIn: "title", text: "" } as SearchTerm)
   // define `changeTerm` dynamic mutation
-  .mutation("changeTerm", (args: Partial<SearchTerm>, { $term }) => {
+  .mutation("changeTerm", ({ $term }, args: Partial<SearchTerm>) => {
     // set `term` state value
     $term((term) => {
       Object.assign(term, args);
@@ -25,7 +25,7 @@ const appModel = model()
   )
   .query(
     "postList",
-    async (_: void, { $term, $fetchPosts }) => {
+    async ({ $term, $fetchPosts }) => {
       console.log("start searching");
       // get `term` state value and listen state changing event
       const term = $term();
@@ -131,6 +131,7 @@ const App = () => {
 
   return (
     <>
+      <h1>Search App with Debounce effect</h1>
       <div>
         <label>
           <input
@@ -138,8 +139,7 @@ const App = () => {
             checked={showSearchTerm}
             onChange={(e) => setShowSearchTerm(e.currentTarget.checked)}
           />
-          Show Search Term. When SearchTermInfo rendered, the model effects are
-          triggered as well and postList query starts preloading
+          Show Search Term
         </label>
       </div>
       <div>

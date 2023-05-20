@@ -6,7 +6,7 @@ type Todo = { id: string; title: string };
 
 const appModel = model()
   .state("list", {} as Record<string, Todo>)
-  .mutation("add", (args: { title: string }, { $list }) => {
+  .mutation("add", ({ $list }, args: { title: string }) => {
     const id = Math.random().toString(16).replace(/\./g, "");
     $list((list) => {
       list[id] = {
@@ -15,17 +15,17 @@ const appModel = model()
       };
     });
   })
-  .mutation("rename", (args: { id: string; title: string }, { $list }) => {
+  .mutation("rename", ({ $list }, args: { id: string; title: string }) => {
     $list((list) => {
       list[args.id].title = args.title;
     });
   })
-  .mutation("remove", (args: { id: string }, { $list }) => {
+  .mutation("remove", ({ $list }, args: { id: string }) => {
     $list((list) => {
       delete list[args.id];
     });
   })
-  .mutation("clear", (args: void, { $list }) => {
+  .mutation("clear", ({ $list }) => {
     $list({});
   });
 
@@ -52,7 +52,7 @@ const App = () => {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <input ref={titleRef} type="text" />
+        <input ref={titleRef} type="text" placeholder="What need to be done?" />
       </form>
       <p>
         <h2>List:</h2>
