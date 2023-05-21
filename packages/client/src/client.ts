@@ -24,6 +24,7 @@ const errorLink = onError((error) => {
 const httpLink = new HttpLink({ uri: "http://localhost:4000/" });
 const link = from([errorLink, authorizationLink, restLink, httpLink]);
 const cache = new InMemoryCache();
+
 const client = new ApolloClient({
   cache,
   link,

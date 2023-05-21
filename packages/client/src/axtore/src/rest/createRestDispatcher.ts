@@ -34,7 +34,7 @@ const createOptionsBuilder = (
 };
 
 const createRestDispatcher = Object.assign(
-  (context: ContextBase): RestDispatcher =>
+  ({ context, client }: ContextBase): RestDispatcher =>
     async (...args: any[]) => {
       const [customOptions, defaultOptions]: [
         RestOptions | undefined,
@@ -62,17 +62,21 @@ const createRestDispatcher = Object.assign(
         defaultOptions
       );
 
-      const result = await context.client.query({
+      const result = await client.query({
         query: restQuery,
         fetchPolicy: "network-only",
         context: {
-          ...context.context,
+          ...context,
           restOptions: {
             fieldName,
             ...optionsBuilder(args),
           },
         },
       });
+
+      // remove cached data
+      client.cache.evict({ id: "ROOT_QUERY", fieldName });
+
       if (result.error) {
         throw result.error;
       }

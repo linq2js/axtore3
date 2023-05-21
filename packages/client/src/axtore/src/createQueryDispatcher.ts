@@ -24,14 +24,14 @@ const createQueryDispatcher = <TVariables, TData>(
   return Object.assign(
     async (variables: any) => {
       const data = await fetch(variables);
-      if (session.manager.recompute && session.isActive) {
+      if (session.manager.invalidate && session.isActive) {
         session.manager.onLoad(() => {
           const oq = getSessionManager(
             client,
             query.document,
             variables
           ).observableQuery;
-          session.manager.onDispose(oq.onChange(session.manager.recompute!));
+          session.manager.onDispose(oq.onChange(session.manager.invalidate!));
         });
       }
       return data;

@@ -7,6 +7,8 @@ import { patchTypeIfPossible } from "./patchTypeIfPossible";
 import { ApolloContext, Client, CustomContextFactory, Query } from "./types";
 import { unwrapVariables } from "./util";
 
+const STALE_TIMER_PROP = Symbol("staleTimer");
+
 const createQueryResolver = <TContext, TMeta>(
   client: Client,
   query: Query,
@@ -17,12 +19,13 @@ const createQueryResolver = <TContext, TMeta>(
     args = unwrapVariables(args);
     const sm = getSessionManager(client, query.document, args);
     sm.query = query;
+    clearTimeout(sm.data[STALE_TIMER_PROP]);
 
     return concurrency(sm, query.options, async () => {
       const session = sm.start();
 
       if (!query.options.proactive) {
-        sm.recompute = () => {
+        sm.invalidate = () => {
           if (!session.isActive) return;
           if (query.options.hardRefetch) {
             // we also apply concurrency for refetching logic
@@ -46,8 +49,7 @@ const createQueryResolver = <TContext, TMeta>(
         },
         session,
         meta,
-        false,
-        () => sm.data
+        false
       );
       const result = await handleLazyResult(
         client,
@@ -62,6 +64,12 @@ const createQueryResolver = <TContext, TMeta>(
 
       if (query.options.type) {
         return patchTypeIfPossible(result, query.options.type);
+      }
+
+      if (query.options.stateTime) {
+        sm.data[STALE_TIMER_PROP] = setTimeout(() => {
+          evictQuery(client, query, args);
+        }, query.options.stateTime);
       }
 
       return result;

@@ -1,44 +1,43 @@
 import { all, race } from "./async";
-import { concurrency } from "./concurrency";
 import { createEventDispatcher } from "./createEventDispatcher";
 import { createLazy } from "./createLazy";
 import { createMutationDispatcher } from "./createMutationDispatcher";
 import { createQueryDispatcher } from "./createQueryDispatcher";
 import { createStateDispatcher } from "./createStateDispatcher";
-import { evictQuery } from "./evictQuery";
-import type { ApolloContext, QueryInfo, Session } from "./types";
+import type { ApolloContext, Session } from "./types";
 import { delay, EMPTY, isEvent, isMutation, isQuery, isState } from "./util";
+
+const defaultContextProps = [
+  ["lazy", createLazy],
+  ["delay", delay],
+  ["all", all],
+  ["race", race],
+] as const;
 
 const createContext = (
   originalContext: ApolloContext,
   session: Session,
   meta: any,
-  updatable: boolean,
-  getSharedData?: () => any
+  updatable: boolean
 ) => {
   let shared: any;
   let lastData = EMPTY;
-  const use = (extras: Function, ...args: any[]) =>
-    extras(contextProxy, ...args);
+  const use = (extras: Function, ...args: any[]) => {
+    return extras(contextProxy, ...args);
+  };
 
   const resolvedProps = new Map<any, any>([
+    ...defaultContextProps,
     ["use", use],
     ["context", originalContext],
     ["client", originalContext.client],
-    ["lazy", createLazy],
-    ["delay", delay],
-    ["all", all],
-    ["race", race],
   ]);
   const contextProxy = new Proxy(
     {},
     {
       get(_, p) {
         if (p === "shared") {
-          if (!shared) {
-            shared = getSharedData ? getSharedData() : {};
-          }
-          return shared;
+          return session.manager.data;
         }
 
         if (p === "lastData") {
@@ -54,7 +53,7 @@ const createContext = (
           return resolvedProps.get(p);
         }
 
-        // query/mutation dispatcher
+        // is query/mutation/state/event dispatcher
         if (typeof p === "string" && p[0] === "$" && p.slice(1) in meta) {
           const value = meta[p.slice(1)];
 
@@ -89,7 +88,6 @@ const createContext = (
           }
 
           if (isState(value)) {
-            const derivedQuery = session.manager.query;
             const dispatcher = createStateDispatcher(
               originalContext,
               value,

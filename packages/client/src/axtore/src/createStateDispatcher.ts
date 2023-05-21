@@ -39,8 +39,7 @@ const createState = (
             originalContext,
             newSession,
             meta,
-            false,
-            () => sm.data
+            false
           );
           nextValue = (state.initial as Function)(nestedContext);
         } else {
@@ -50,7 +49,7 @@ const createState = (
         setValue(nextValue);
       };
 
-      sm.recompute = recompute;
+      sm.invalidate = recompute;
 
       recompute();
 
@@ -90,9 +89,11 @@ const createStateDispatcher = <TData>(
       if (!args.length) {
         const value = get();
 
-        if (session.manager.recompute) {
+        if (session.manager.invalidate) {
           session.manager.onLoad(() =>
-            session.manager.onDispose(on({ change: session.manager.recompute }))
+            session.manager.onDispose(
+              on({ change: session.manager.invalidate })
+            )
           );
         }
         return value;

@@ -1,6 +1,6 @@
 import { ApolloError } from "@apollo/client";
 import { delay, model } from "axtore";
-import { createHooks } from "axtore/react";
+import { hooks } from "axtore/react";
 import { rest } from "axtore/rest";
 import { Suspense, useState } from "react";
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
@@ -20,7 +20,7 @@ const appModel = model({ context: { rest } })
     throw new Error("Query error");
   });
 
-const { useHasError } = createHooks(appModel.meta);
+const { useHasError } = hooks(appModel.meta);
 
 const HandleErrorByOnError = (props: ErrorArgs) => {
   const [error, setError] = useState<ApolloError>();
@@ -60,8 +60,8 @@ const App = () => {
 
   return (
     <>
+      <blockquote>This app demonstrates for error handling</blockquote>
       <p>
-        <h2>Error handling method</h2>
         <select
           onChange={(e) =>
             setMethod(e.currentTarget.value as ErrorHandlingMethod)
@@ -74,7 +74,9 @@ const App = () => {
         </select>
       </p>
       <p>
-        <h2>Error type</h2>
+        <p>
+          <strong>Error type</strong>
+        </p>
         <label>
           <input
             type="radio"

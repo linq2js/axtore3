@@ -1,6 +1,6 @@
 import { Suspense, useState } from "react";
 import { model, gql } from "axtore";
-import { createHooks } from "axtore/react";
+import { hooks } from "axtore/react";
 import { SearchTerm } from "../types";
 
 const appModel = model()
@@ -47,7 +47,7 @@ const appModel = model()
     $postList();
   });
 
-const { usePostList, useChangeTerm, useTerm } = createHooks(appModel.meta);
+const { usePostList, useChangeTerm, useTerm } = hooks(appModel.meta);
 
 const FilterByText = () => {
   const term = useTerm();
@@ -131,14 +131,16 @@ const App = () => {
 
   return (
     <>
-      <h1>Search App with Debounce effect</h1>
+      <blockquote>
+        This app demonstrates using debouncing option of query
+      </blockquote>
       <div>
         <label>
           <input
             type="checkbox"
             checked={showSearchTerm}
             onChange={(e) => setShowSearchTerm(e.currentTarget.checked)}
-          />
+          />{" "}
           Show Search Term
         </label>
       </div>
@@ -148,7 +150,7 @@ const App = () => {
             type="checkbox"
             checked={showSearchForm}
             onChange={(e) => setShowSearchForm(e.currentTarget.checked)}
-          />
+          />{" "}
           Show Search Form
         </label>
       </div>

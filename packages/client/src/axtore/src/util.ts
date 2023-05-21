@@ -195,23 +195,30 @@ const gql = <TVariables = any, TData = any>(
 
 const untilSubscriptionNotifyingDone = () => delay(0);
 
-const isMappedVariables = (variables: any) =>
+const isWrappedVariables = (variables: any) =>
   variables &&
   typeof variables === "object" &&
   WRAPPED_VARIABLE_NAME in variables;
 
 const unwrapVariables = (variables: any) => {
-  return isMappedVariables(variables)
+  return isWrappedVariables(variables)
     ? variables[WRAPPED_VARIABLE_NAME]
     : variables;
 };
 
+/**
+ * we don't know variables of dynamic query/mutation so we define a __VARS__ and use it to store user variables
+ * when resolver is calling, we must unwrap __VARS__ to user variables before use
+ * @param dynamic
+ * @param variables
+ * @returns
+ */
 const wrapVariables = (dynamic: boolean | undefined, variables: any = {}) => {
   const hasKey = Object.keys(variables).length > 0;
   if (!hasKey) {
     variables = undefined;
   }
-  if (!dynamic || isMappedVariables(variables)) return variables;
+  if (!dynamic || isWrappedVariables(variables)) return variables;
   return { [WRAPPED_VARIABLE_NAME]: variables };
 };
 

@@ -1,19 +1,21 @@
 import { ApolloProvider } from "@apollo/client";
 import { Loading } from "./components/Loading";
-import { FC, Fragment, Suspense, useState } from "react";
+import { FC, Suspense, useState } from "react";
 import { client } from "./client";
-import { App as TodoList } from "./examples/TodoList";
-import { App as DebouncingEffect } from "./examples/SearchPost";
-import { App as EventHandling } from "./examples/Event";
+import { App as StateMutating } from "./examples/StateMutating";
+import { App as DebouncingEffect } from "./examples/DebouncingEffect";
+import { App as EventHandling } from "./examples/EventHandling";
 import { App as ErrorHandling } from "./examples/ErrorHandling";
-import { App as LazyFetching } from "./examples/Lazy";
+import { App as LazyUpdating } from "./examples/LazyUpdating";
+import { App as DataStaling } from "./examples/DataStaling";
 
 const pages = {
-  TodoList,
+  StateMutating,
   DebouncingEffect,
   EventHandling,
   ErrorHandling,
-  LazyFetching,
+  LazyUpdating,
+  DataStaling,
 } as Record<string, FC>;
 
 const pageNames = Object.keys(pages);
@@ -23,20 +25,23 @@ export default () => {
   const Page = pages[selected];
 
   return (
-    <ApolloProvider client={client}>
-      <p>
-        Select an example{" "}
-        <select onChange={(e) => setPage(e.currentTarget.value)}>
-          {pageNames.map((pageName) => (
-            <option value={pageName} key={pageName}>
-              {pageName}
-            </option>
-          ))}
-        </select>
-      </p>
-      <Suspense fallback={<Loading />}>
-        <Page />
-      </Suspense>
-    </ApolloProvider>
+    <div style={{ margin: 20 }}>
+      <ApolloProvider client={client}>
+        <p>
+          Select an example{" "}
+          <select onChange={(e) => setPage(e.currentTarget.value)}>
+            {pageNames.map((pageName) => (
+              <option value={pageName} key={pageName}>
+                {pageName}
+              </option>
+            ))}
+          </select>
+        </p>
+        <hr />
+        <Suspense fallback={<Loading />}>
+          <Page />
+        </Suspense>
+      </ApolloProvider>
+    </div>
   );
 };

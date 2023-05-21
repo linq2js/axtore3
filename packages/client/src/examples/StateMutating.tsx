@@ -1,5 +1,5 @@
 import { model } from "axtore";
-import { createHooks } from "axtore/react";
+import { hooks } from "axtore/react";
 import { FormEvent, useMemo, useRef } from "react";
 
 type Todo = { id: string; title: string };
@@ -29,7 +29,7 @@ const appModel = model()
     $list({});
   });
 
-const { useAdd, useRemove, useRename, useList, useClear } = createHooks(
+const { useAdd, useRemove, useRename, useList, useClear } = hooks(
   appModel.meta
 );
 
@@ -51,13 +51,20 @@ const App = () => {
 
   return (
     <>
+      <blockquote>
+        This app demonstrates using `state`. A state is where to store sync
+        data, when the state is changed, its consumers will be notified
+        immediately as well.
+      </blockquote>
       <form onSubmit={handleSubmit}>
         <input ref={titleRef} type="text" placeholder="What need to be done?" />
       </form>
+      <p></p>
       <p>
-        <h2>List:</h2>
-        <button onClick={() => clear.mutate()}>Clear</button>
+        <strong>List:</strong>
       </p>
+      <button onClick={() => clear.mutate()}>Clear</button>
+      <p></p>
       {values.map((todo) => {
         return (
           <p key={todo.id}>
@@ -74,7 +81,9 @@ const App = () => {
           </p>
         );
       })}
-      <h2>Data:</h2>
+      <p>
+        <strong>Data:</strong>
+      </p>
       <pre>{JSON.stringify(list, null, 2)}</pre>
     </>
   );

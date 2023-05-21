@@ -1,6 +1,5 @@
 import { concurrency } from "./concurrency";
 import { createContext } from "./createContext";
-import { getData } from "./getData";
 import { getSessionManager } from "./getSessionManager";
 import { patchTypeIfPossible } from "./patchTypeIfPossible";
 import { ApolloContext, Client, CustomContextFactory, Mutation } from "./types";
@@ -26,9 +25,7 @@ const createMutationResolver = <TContext, TMeta>(
         },
         session,
         meta,
-        true,
-        // create simple data object for mutation
-        () => getData(client, mutation, {}, (_, key) => ({ key }))
+        true
       );
       const data = await mutation.resolver?.(context, args);
 

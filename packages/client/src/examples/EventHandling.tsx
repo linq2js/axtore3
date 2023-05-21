@@ -1,5 +1,5 @@
 import { model, typed } from "axtore";
-import { createHooks, useStable } from "axtore/react";
+import { hooks, useStable } from "axtore/react";
 import { rest } from "axtore/rest";
 import {
   FormEvent,
@@ -106,10 +106,10 @@ const appModel = baseModel.effect(
   }
 );
 
-const { useUser, useLogin, useLogout } = createHooks(appModel.meta);
-const { useTasks, useInit: useInitTaskModule } = createHooks(taskModel.meta);
-const { usePosts } = createHooks(postModel.meta);
-const { useAlbums } = createHooks(albumModel.meta);
+const { useUser, useLogin, useLogout } = hooks(appModel.meta);
+const { useTasks, useInit: useInitTaskModule } = hooks(taskModel.meta);
+const { usePosts } = hooks(postModel.meta);
+const { useAlbums } = hooks(albumModel.meta);
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -130,8 +130,10 @@ const LoginPage = () => {
 
   return (
     <fieldset disabled={loading}>
-      <form onSubmit={handleSubmit} style={{ padding: 10 }}>
-        <h2>Login</h2>
+      <form onSubmit={handleSubmit}>
+        <p>
+          <strong>Login</strong>
+        </p>
         <input
           type="text"
           ref={inputRef}
@@ -165,45 +167,25 @@ const DataViewer = (props: { data: any }) => {
 const ProfilePage = () => {
   const user = useUser();
 
-  return (
-    <>
-      <h2>Profile</h2>
-      <DataViewer data={user} />
-    </>
-  );
+  return <DataViewer data={user} />;
 };
 
 const PostsPage = () => {
   const posts = usePosts().wait();
 
-  return (
-    <>
-      <h2>Posts</h2>
-      <DataViewer data={posts} />
-    </>
-  );
+  return <DataViewer data={posts} />;
 };
 
 const TasksPage = () => {
   const tasks = useTasks().wait();
 
-  return (
-    <>
-      <h2>Tasks</h2>
-      <DataViewer data={tasks} />
-    </>
-  );
+  return <DataViewer data={tasks} />;
 };
 
 const AlbumsPage = () => {
   const albums = useAlbums().wait();
 
-  return (
-    <>
-      <h2>Albums</h2>
-      <DataViewer data={albums} />
-    </>
-  );
+  return <DataViewer data={albums} />;
 };
 
 const DashboardPage = () => {
@@ -215,7 +197,7 @@ const DashboardPage = () => {
     "profile"
   );
   return (
-    <div style={{ padding: 10 }}>
+    <div>
       <p style={{ display: "flex", columnGap: 10, cursor: "pointer" }}>
         <Link type={"profile"} currentType={page} onClick={setPage}>
           Profile
@@ -243,7 +225,14 @@ const DashboardPage = () => {
 
 const App = () => {
   const user = useUser();
-  return user ? <DashboardPage /> : <LoginPage />;
+  return (
+    <>
+      <blockquote>
+        This app demonstrates event handling in cross models
+      </blockquote>
+      {user ? <DashboardPage /> : <LoginPage />}
+    </>
+  );
 };
 
 export { App };

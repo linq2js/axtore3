@@ -1,6 +1,5 @@
 import { gql, model } from "axtore";
-import { print } from "graphql";
-import { createHooks } from "axtore/react";
+import { hooks } from "axtore/react";
 import { faker } from "@faker-js/faker";
 
 const appModel = model()
@@ -27,20 +26,42 @@ const appModel = model()
     lazy(() => `Time: ${new Date().toISOString()}`, { interval: 1000 })
   );
 
-const { useTime, useMe } = createHooks(appModel.meta);
+const { useTime, useMe } = hooks(appModel.meta);
 
-const Me = () => {
+const OneTimeUpdate = () => {
   const me = useMe();
-  return <pre>{JSON.stringify(me.data, null, 2)}</pre>;
+  return (
+    <>
+      <p>
+        <strong>One time update</strong>
+      </p>
+      <pre>{JSON.stringify(me.data, null, 2)}</pre>
+    </>
+  );
 };
 
-const App = () => {
+const ContinuousUpdate = () => {
   const time = useTime();
 
   return (
     <>
-      <div>{time.data?.time}</div>
-      <Me />
+      <p>
+        <strong>Continuous update</strong>
+      </p>
+      <p>{time.data?.time}</p>
+    </>
+  );
+};
+
+const App = () => {
+  return (
+    <>
+      <blockquote>
+        This app demonstrates lazy data updating. We can control lazy updating
+        for every single type field or query result
+      </blockquote>
+      <ContinuousUpdate />
+      <OneTimeUpdate />
     </>
   );
 };

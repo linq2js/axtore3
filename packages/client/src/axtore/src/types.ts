@@ -228,6 +228,7 @@ export type QueryOptions = {
    * by default, query has reactive mode, when query's dependencies updated the query does refetching as well. if proactive = true, the query does nothing
    */
   proactive?: boolean;
+  stateTime?: number;
 } & ConcurrencyOptions;
 
 export type MutationOptions = {
@@ -613,7 +614,7 @@ export type SessionManager = {
   onDispose: CallbackGroup;
   query?: Query;
   mutation?: Mutation;
-  recompute?: VoidFunction;
+  invalidate?: VoidFunction;
 };
 
 export type Session = {

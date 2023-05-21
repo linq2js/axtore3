@@ -1,5 +1,5 @@
 import { createModel } from "../createModel";
-import { createHooks } from ".";
+import { createHooks } from "./createHooks";
 import { rest } from "../rest";
 import { delay } from "../util";
 import React, { ReactNode, Suspense, useState } from "react";
