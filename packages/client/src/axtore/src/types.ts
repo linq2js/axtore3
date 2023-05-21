@@ -613,6 +613,7 @@ export type SessionManager = {
   onDispose: CallbackGroup;
   query?: Query;
   mutation?: Mutation;
+  recompute?: VoidFunction;
 };
 
 export type Session = {

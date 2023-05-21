@@ -13,11 +13,9 @@ import type {
   FieldMappings,
 } from "./types";
 import type { DocumentNode } from "graphql";
-import { isState, isMutation, isQuery, unwrapVariables, isEvent } from "./util";
+import { isState, isMutation, isQuery, isEvent } from "./util";
 
 import { mergeDeep } from "@apollo/client/utilities";
-import { getData } from "./getData";
-import { concurrency } from "./concurrency";
 import { createState } from "./createState";
 import { createDynamicDocument } from "./createDynamicDocument";
 import { createQuery } from "./createQuery";
@@ -26,9 +24,11 @@ import { patchLocalFields } from "./patchLocalFields";
 import { patchTypeIfPossible } from "./patchTypeIfPossible";
 import { getSessionManager } from "./getSessionManager";
 import { createContext } from "./createContext";
-import { handleLazyResult } from "./handleLazyResult";
 import { createEvent } from "./createEvent";
 import { generateName } from "./generateName";
+import { createQueryResolver } from "./createQueryResolver";
+import { createMutationResolver } from "./createMutationResolver";
+import { createTypeResolver } from "./createTypeResolver";
 
 const createModel: CreateModel = (options = {}) => {
   return createModelInternal(options);
@@ -42,10 +42,22 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
 ): Model<TContext, TMeta> => {
   effects = effects.slice();
   const id = Symbol("model");
-  const contextFactory: CustomContextFactory<TContext> =
-    typeof modelOptions.context === "function"
-      ? (modelOptions.context as CustomContextFactory<TContext>)
-      : () => (modelOptions.context ?? {}) as unknown as TContext;
+  let cachedContext: TContext | undefined;
+
+  const contextFactory: CustomContextFactory<TContext> = (
+    apolloContext: ApolloContext
+  ) => {
+    if (!cachedContext) {
+      if (typeof modelOptions.context === "function") {
+        cachedContext = (
+          modelOptions.context as CustomContextFactory<TContext>
+        )(apolloContext);
+      } else {
+        cachedContext = { ...modelOptions.context } as TContext;
+      }
+    }
+    return cachedContext;
+  };
 
   const init = (client: Client) => {
     // already init for this client
@@ -76,46 +88,12 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
         resolvers = {
           ...resolvers,
           Query: {
-            [query.name]: async (
-              _: any,
-              args: any,
-              apolloContext: ApolloContext
-            ) => {
-              args = unwrapVariables(args);
-              const sm = getSessionManager(client, query.document, args);
-              sm.query = query;
-
-              return concurrency(sm, query.options, async () => {
-                const session = sm.start();
-                const context = createContext(
-                  {
-                    ...apolloContext,
-                    ...contextFactory(apolloContext),
-                  },
-                  session,
-                  meta,
-                  false,
-                  undefined,
-                  () => sm.data
-                );
-                const result = await handleLazyResult(
-                  client,
-                  session,
-                  "query",
-                  () => query.mergeOptions({ variables: args }),
-                  query.name,
-                  await query.resolver?.(context, args)
-                );
-
-                sm.onLoad.invokeAndClear();
-
-                if (query.options.type) {
-                  return patchTypeIfPossible(result, query.options.type);
-                }
-
-                return result;
-              });
-            },
+            [query.name]: createQueryResolver(
+              client,
+              query,
+              contextFactory,
+              meta
+            ),
           },
         };
         return;
@@ -134,39 +112,12 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
         resolvers = {
           ...resolvers,
           Mutation: {
-            [mutation.name]: async (
-              _: any,
-              args: any,
-              apolloContext: ApolloContext
-            ) => {
-              args = unwrapVariables(args);
-              const sm = getSessionManager(client, false);
-              sm.mutation = mutation;
-
-              return concurrency(mutation, mutation.options, async () => {
-                const session = sm.start();
-                const context = createContext(
-                  {
-                    ...apolloContext,
-                    ...contextFactory(apolloContext),
-                  },
-                  session,
-                  meta,
-                  true,
-                  undefined,
-                  () =>
-                    // create simple data object for mutation
-                    getData(client, mutation, {}, (_, key) => ({ key }))
-                );
-                const data = await mutation.resolver?.(context, args);
-
-                if (mutation.options.type) {
-                  return patchTypeIfPossible(data, mutation.options.type);
-                }
-
-                return data;
-              });
-            },
+            [mutation.name]: createMutationResolver(
+              client,
+              mutation,
+              contextFactory,
+              meta
+            ),
           },
         };
         return;
@@ -178,51 +129,27 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
       }
 
       // is type resolvers
-      Object.entries(value).forEach(
-        ([resolverName, resolver]: [string, any]) => {
-          if (resolver.model !== model) {
-            resolver.model.init(client);
-            return;
-          }
-
-          hasNewResolver = true;
-          resolvers = {
-            ...resolvers,
-            [typeName]: {
-              ...resolvers[typeName],
-              [resolverName]: async (
-                parent: any,
-                args: any,
-                apolloContext: ApolloContext
-              ) => {
-                args = unwrapVariables(args);
-                const sm = getSessionManager(client, false);
-                const session = sm.start();
-                const context = createContext(
-                  {
-                    ...apolloContext,
-                    ...contextFactory(apolloContext),
-                  },
-                  session,
-                  meta,
-                  false
-                );
-                const rawResult = await resolver(context, args, parent);
-                const result = await handleLazyResult(
-                  client,
-                  session,
-                  "type",
-                  () => client.cache.identify(parent),
-                  resolverName,
-                  rawResult
-                );
-                session.manager.onLoad.invokeAndClear();
-                return result;
-              },
-            },
-          };
+      Object.entries(value).forEach(([field, resolver]: [string, any]) => {
+        if (resolver.model !== model) {
+          resolver.model.init(client);
+          return;
         }
-      );
+
+        hasNewResolver = true;
+        resolvers = {
+          ...resolvers,
+          [typeName]: {
+            ...resolvers[typeName],
+            [field]: createTypeResolver(
+              client,
+              resolver,
+              field,
+              contextFactory,
+              meta
+            ),
+          },
+        };
+      });
     });
 
     if (hasNewResolver) {

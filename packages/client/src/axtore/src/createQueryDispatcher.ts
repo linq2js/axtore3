@@ -1,6 +1,5 @@
 import produce from "immer";
 import { callbackGroup } from "./callbackGroup";
-import { concurrency } from "./concurrency";
 import { evictAllQueries } from "./evictAllQueries";
 import { evictQuery } from "./evictQuery";
 import { getObservableQuery } from "./getObservableQuery";
@@ -25,29 +24,14 @@ const createQueryDispatcher = <TVariables, TData>(
   return Object.assign(
     async (variables: any) => {
       const data = await fetch(variables);
-      const derivedQuery = session.manager.query;
-      if (derivedQuery && !derivedQuery.options.proactive && session.isActive) {
+      if (session.manager.recompute && session.isActive) {
         session.manager.onLoad(() => {
           const oq = getSessionManager(
             client,
             query.document,
             variables
           ).observableQuery;
-          session.manager.onDispose(
-            oq.onChange(() => {
-              if (derivedQuery.options.hardRefetch) {
-                concurrency(
-                  session.manager,
-                  derivedQuery.options.debounce ? derivedQuery.options : {},
-                  async () => {
-                    evictQuery(client, derivedQuery, variables);
-                  }
-                );
-                return;
-              }
-              session.manager.observableQuery.refetch();
-            })
-          );
+          session.manager.onDispose(oq.onChange(session.manager.recompute!));
         });
       }
       return data;

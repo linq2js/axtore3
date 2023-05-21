@@ -14,7 +14,6 @@ const createContext = (
   session: Session,
   meta: any,
   updatable: boolean,
-  recomputeDerivedState?: VoidFunction,
   getSharedData?: () => any
 ) => {
   let shared: any;
@@ -96,31 +95,7 @@ const createContext = (
               value,
               session,
               updatable,
-              meta,
-              recomputeDerivedState ??
-                (derivedQuery && !derivedQuery.options.proactive
-                  ? () => {
-                      if (!session.isActive) return;
-                      if (derivedQuery.options.hardRefetch) {
-                        // we also apply concurrency for refetching logic
-                        concurrency(
-                          session.manager,
-                          derivedQuery.options.debounce
-                            ? derivedQuery.options
-                            : {},
-                          async () => {
-                            evictQuery(
-                              originalContext.client,
-                              derivedQuery,
-                              session.manager.observableQuery.variables
-                            );
-                          }
-                        );
-                        return;
-                      }
-                      session.manager.observableQuery.refetch();
-                    }
-                  : undefined)
+              meta
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;
