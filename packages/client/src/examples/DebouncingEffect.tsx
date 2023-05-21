@@ -63,7 +63,7 @@ const FilterByText = () => {
       >
         <option value="body">Body</option>
         <option value="title">Title</option>
-      </select>
+      </select>{" "}
       <input
         type="text"
         value={term.text}
@@ -107,7 +107,7 @@ const SearchTermInfo = () => {
   const term = useTerm();
   return (
     <>
-      <h2>Search Term</h2>
+      <strong>Search Term</strong>
       <pre>{JSON.stringify(term)}</pre>
     </>
   );
@@ -116,6 +116,9 @@ const SearchTermInfo = () => {
 const SearchForm = () => {
   return (
     <>
+      <p>
+        <strong>Search form</strong>
+      </p>
       <FilterByText />
       <FilterByUser />
       <Suspense fallback="Searching...">

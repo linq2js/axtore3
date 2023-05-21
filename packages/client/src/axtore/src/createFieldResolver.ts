@@ -2,22 +2,16 @@ import { createContext } from "./createContext";
 import { getSessionManager } from "./getSessionManager";
 import { handleLazyResult } from "./handleLazyResult";
 import { patchTypeIfPossible } from "./patchTypeIfPossible";
-import {
-  ApolloContext,
-  Client,
-  CustomContextFactory,
-  FieldOptions,
-} from "./types";
+import { ApolloContext, Client, CustomContextFactory, Field } from "./types";
 import { unwrapVariables } from "./util";
 
-const createTypeResolver = <TContext, TMeta>(
+const createFieldResolver = <TContext>(
   client: Client,
-  resolver: Function,
+  resolver: Field,
   field: string,
-  contextFactory: CustomContextFactory<TContext>,
-  meta: TMeta
+  contextFactory: CustomContextFactory<TContext>
 ) => {
-  const options = (resolver as any).options as FieldOptions;
+  const { options, model } = resolver;
 
   return async (parent: any, args: any, apolloContext: ApolloContext) => {
     args = unwrapVariables(args);
@@ -26,15 +20,15 @@ const createTypeResolver = <TContext, TMeta>(
       args = options.parse(args);
     }
 
-    const sm = getSessionManager(client, false);
+    const sm = getSessionManager(client, resolver, args);
     const session = sm.start();
     const context = createContext(
+      model,
       {
         ...apolloContext,
         ...contextFactory(apolloContext),
       },
       session,
-      meta,
       false
     );
     const rawResult = await resolver(context, args, parent);
@@ -56,4 +50,4 @@ const createTypeResolver = <TContext, TMeta>(
   };
 };
 
-export { createTypeResolver };
+export { createFieldResolver };

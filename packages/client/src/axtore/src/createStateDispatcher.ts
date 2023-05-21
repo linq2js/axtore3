@@ -6,24 +6,24 @@ import { getUpdatedData } from "./getUpdatedData";
 import type { ApolloContext, Session, State } from "./types";
 import { createProp } from "./util";
 
-const createState = (
-  state: State,
-  originalContext: ApolloContext,
-  meta: any
-) => {
+const strictEqual = (a: any, b: any) => a === b;
+
+const createState = (state: State, originalContext: ApolloContext) => {
   return createProp(
     originalContext.client,
     // must add state suffix to make no duplicates to other entity name
-    state.name + "State",
+    state.options.name + "State",
     () => {
       const rv = makeVar({} as any);
       const sm = getSessionManager(originalContext.client, false);
       const onChange = callbackGroup();
+      const { equal = strictEqual, parse } = state.options;
 
       const setValue = (nextValue: any) => {
-        if (nextValue !== rv()) {
-          rv(nextValue);
-        }
+        if (parse) nextValue = parse(nextValue);
+        const prevValue = rv();
+        if (equal(nextValue, prevValue)) return;
+        rv(nextValue);
       };
 
       rv.onNextChange(function listen(value) {
@@ -36,9 +36,9 @@ const createState = (
         let nextValue: any;
         if (typeof state.initial === "function") {
           const nestedContext = createContext(
+            state.model,
             originalContext,
             newSession,
-            meta,
             false
           );
           nextValue = (state.initial as Function)(nestedContext);
@@ -79,10 +79,9 @@ const createStateDispatcher = <TData>(
   originalContext: ApolloContext,
   state: State<TData>,
   session: Session,
-  updatable: boolean,
-  meta: any
+  updatable: boolean
 ) => {
-  const { get, set, on, rv } = createState(state, originalContext, meta);
+  const { get, set, on, rv } = createState(state, originalContext);
 
   return Object.assign(
     (...args: any[]) => {

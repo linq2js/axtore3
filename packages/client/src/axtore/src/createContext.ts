@@ -4,7 +4,7 @@ import { createLazy } from "./createLazy";
 import { createMutationDispatcher } from "./createMutationDispatcher";
 import { createQueryDispatcher } from "./createQueryDispatcher";
 import { createStateDispatcher } from "./createStateDispatcher";
-import type { ApolloContext, Session } from "./types";
+import type { ApolloContext, Model, Session } from "./types";
 import { delay, EMPTY, isEvent, isMutation, isQuery, isState } from "./util";
 
 const defaultContextProps = [
@@ -15,12 +15,11 @@ const defaultContextProps = [
 ] as const;
 
 const createContext = (
+  model: Model<any, any>,
   originalContext: ApolloContext,
   session: Session,
-  meta: any,
   updatable: boolean
 ) => {
-  let shared: any;
   let lastData = EMPTY;
   const use = (extras: Function, ...args: any[]) => {
     return extras(contextProxy, ...args);
@@ -54,15 +53,22 @@ const createContext = (
         }
 
         // is query/mutation/state/event dispatcher
-        if (typeof p === "string" && p[0] === "$" && p.slice(1) in meta) {
-          const value = meta[p.slice(1)];
+        if (typeof p === "string" && p[0] === "$" && p.slice(1) in model.meta) {
+          const value = model.meta[p.slice(1)];
 
           if (isQuery(value)) {
             const dispatcher = createQueryDispatcher(
               originalContext.client,
               value,
               session,
-              contextProxy
+              value.model === model
+                ? contextProxy
+                : createContext(
+                    value.model,
+                    originalContext,
+                    session,
+                    updatable
+                  )
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;
@@ -72,7 +78,14 @@ const createContext = (
             const dispatcher = createMutationDispatcher(
               originalContext.client,
               value,
-              contextProxy
+              value.model === model
+                ? contextProxy
+                : createContext(
+                    value.model,
+                    originalContext,
+                    session,
+                    updatable
+                  )
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;
@@ -92,8 +105,7 @@ const createContext = (
               originalContext,
               value,
               session,
-              updatable,
-              meta
+              updatable
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;

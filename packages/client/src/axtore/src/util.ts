@@ -6,6 +6,7 @@ import type {
   Query,
   Lazy,
   Event,
+  Model,
 } from "./types";
 import { gql as originalGql } from "graphql-tag";
 import type {
@@ -25,7 +26,7 @@ const EMPTY = Symbol("empty");
 const enqueue = Promise.resolve().then.bind(Promise.resolve());
 
 const getType = (obj: any): ObjectType | "unknown" => {
-  const type = String(obj?.type) as ObjectType;
+  const type = String(obj?.type || obj?.__type) as ObjectType;
   if (!type) return "unknown";
   return type;
 };
@@ -34,6 +35,12 @@ const isQuery = <TVariables = any, TData = any>(
   obj: any
 ): obj is Query<TVariables, TData> => {
   return getType(obj) === "query";
+};
+
+const isModel = <TContext = any, TMeta = any>(
+  obj: any
+): obj is Model<TContext, TMeta> => {
+  return getType(obj) === "model";
 };
 
 const isEvent = <TArgs = any>(obj: any): obj is Event<TArgs> => {
@@ -237,6 +244,7 @@ export {
   isFunction,
   isLoadable,
   isLazy,
+  isModel,
   noop,
   deferIf,
   is,

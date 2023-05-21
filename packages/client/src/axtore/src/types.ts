@@ -377,7 +377,7 @@ export type DispatcherMap<
 export type State<TData = any> = {
   type: "state";
   model: Model<any, any>;
-  name: string;
+  options: StateOptions<TData>;
   initial: TData | ((context: any) => TData);
 };
 
@@ -385,9 +385,19 @@ export type Effect<TContext = {}, TMeta = {}> = (
   context: MutationContext<TContext, TMeta>
 ) => void;
 
-export type AtomOptions = { name?: string };
+export type StateOptions<TState> = {
+  name?: string;
+  parse?(raw: any): TState;
+  equal?(a: TState, b: TState): boolean;
+};
+
+export type Field = FieldResolver<any, any, any, any> & {
+  model: Model<any, any>;
+  options: FieldOptions;
+};
 
 export type Model<TContext = {}, TMeta = {}> = {
+  readonly __type: "model";
   readonly id: Symbol;
   readonly meta: TMeta;
   readonly effects: Effect<TContext, TMeta>[];
@@ -404,6 +414,12 @@ export type Model<TContext = {}, TMeta = {}> = {
     document: DocumentNode
   ): Model<TContext, AddProp<TMeta, TName, Query<any, any>>>;
 
+  /**
+   * create query with alias
+   * @param name
+   * @param resolver
+   * @param options
+   */
   query<TAlias extends string, TName extends string, TVariables, TData>(
     name: `${TAlias}:${TName}`,
     resolver: RootResolver<QueryContext<TContext, TMeta>, TVariables, TData>,
@@ -445,11 +461,26 @@ export type Model<TContext = {}, TMeta = {}> = {
     AddProp<TMeta, TName, Mutation<TVariables, { [key in TName]: TData }>>
   >;
 
-  state<TName extends string, TData>(
+  /**
+   * create mutation with alias
+   * @param name
+   * @param resolver
+   * @param options
+   */
+  mutation<TAlias extends string, TName extends string, TVariables, TData>(
+    name: `${TAlias}:${TName}`,
+    resolver: RootResolver<MutationContext<TContext, TMeta>, TVariables, TData>,
+    options?: NoInfer<MutationOptions<TVariables>>
+  ): Model<
+    TContext,
+    AddProp<TMeta, TAlias, Mutation<TVariables, { [key in TAlias]: TData }>>
+  >;
+
+  state<TName extends string, TState>(
     name: TName,
-    data: TData | ((context: StateContext<TContext, TMeta>) => TData),
-    options?: AtomOptions
-  ): Model<TContext, AddProp<TMeta, TName, State<TData>>>;
+    data: TState | ((context: StateContext<TContext, TMeta>) => TState),
+    options?: NoInfer<StateOptions<TState>>
+  ): Model<TContext, AddProp<TMeta, TName, State<TState>>>;
 
   type<
     TType extends string,
@@ -473,13 +504,15 @@ export type Model<TContext = {}, TMeta = {}> = {
 
   call<TResult, TArgs extends any[]>(
     client: Client,
-    action: (
-      context: MutationContext<TContext, TMeta>,
-      ...args: TArgs
-    ) => TResult,
+    action: ModelAction<TContext, TMeta, TArgs, TResult>,
     ...args: TArgs
   ): TResult;
 };
+
+export type ModelAction<TContext, TMeta, TArgs extends any[], TResult> = (
+  context: MutationContext<TContext, TMeta>,
+  ...args: TArgs
+) => TResult;
 
 export type CreateModel = {
   <TContext = {}>(options?: ModelOptions<TContext>): Model<TContext, {}>;

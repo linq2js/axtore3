@@ -28,7 +28,7 @@ import { createEvent } from "./createEvent";
 import { generateName } from "./generateName";
 import { createQueryResolver } from "./createQueryResolver";
 import { createMutationResolver } from "./createMutationResolver";
-import { createTypeResolver } from "./createTypeResolver";
+import { createFieldResolver } from "./createFieldResolver";
 
 const createModel: CreateModel = (options = {}) => {
   return createModelInternal(options);
@@ -88,12 +88,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
         resolvers = {
           ...resolvers,
           Query: {
-            [query.name]: createQueryResolver(
-              client,
-              query,
-              contextFactory,
-              meta
-            ),
+            [query.name]: createQueryResolver(client, query, contextFactory),
           },
         };
         return;
@@ -115,8 +110,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
             [mutation.name]: createMutationResolver(
               client,
               mutation,
-              contextFactory,
-              meta
+              contextFactory
             ),
           },
         };
@@ -140,12 +134,11 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
           ...resolvers,
           [typeName]: {
             ...resolvers[typeName],
-            [field]: createTypeResolver(
+            [field]: createFieldResolver(
               client,
               resolver,
               field,
-              contextFactory,
-              meta
+              contextFactory
             ),
           },
         };
@@ -189,18 +182,19 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
     init(client);
 
     const context = createContext(
+      model,
       {
         client,
         ...contextFactory({ client }),
       },
       getSessionManager(client).start(),
-      meta,
       true
     );
     return action(context, ...args);
   };
 
   const model: Model<TContext, TMeta> = {
+    __type: "model",
     id,
     meta,
     effects,
@@ -249,7 +243,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
         newFieldMappings
       );
     },
-    mutation(selection, ...args: any[]) {
+    mutation(selection: string, ...args: any[]) {
       const [alias, name = alias] = selection.split(":");
       let options: MutationOptions | undefined;
       let newFieldMappings: FieldMappings | undefined;
@@ -280,7 +274,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
       );
     },
     state(name, initial, options) {
-      return extend(name, createState(model, initial, options?.name));
+      return extend(name, createState(model, initial, options));
     },
     effect(...newEffects) {
       effects.push(...newEffects);

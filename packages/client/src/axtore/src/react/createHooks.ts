@@ -11,7 +11,8 @@ import type {
 } from "../types";
 import { useQuery } from "./useQuery";
 import { useMutation } from "./useMutation";
-import { isState, isMutation, isQuery, isEvent } from "../util";
+import { createUseActionHooks } from "./createUseActionHooks";
+import { isState, isMutation, isQuery, isEvent, isModel } from "../util";
 import {
   useApolloClient,
   useReactiveVar as reactiveVarHook,
@@ -19,7 +20,9 @@ import {
 import { useMemo } from "react";
 import { useEvent } from "./useEvent";
 
-type InferHook<T> = T extends Query<infer TVariables, infer TData>
+type InferHook<T> = T extends Model<infer TContext, infer TMeta>
+  ? ReturnType<typeof createUseActionHooks<TContext, TMeta>>
+  : T extends Query<infer TVariables, infer TData>
   ? SkipFirstArg<typeof useQuery<TVariables, TData>>
   : T extends Mutation<infer TVariables, infer TData>
   ? SkipFirstArg<typeof useMutation<TVariables, TData>>
@@ -94,6 +97,9 @@ const createHooks: CreateHooks = (meta: any, options?: any) => {
         useInit();
         return useEvent(value, ...args);
       };
+    } else if (isModel(value)) {
+      models.add(value);
+      hook = createUseActionHooks(value);
     }
 
     if (hook) {

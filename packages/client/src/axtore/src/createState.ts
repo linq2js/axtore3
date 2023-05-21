@@ -1,15 +1,17 @@
 import { generateName } from "./generateName";
-import type { Model, State } from "./types";
+import type { Model, NoInfer, State, StateOptions } from "./types";
 
 const createState = <TContext, TMeta, TData>(
   model: Model<TContext, TMeta>,
   initial: TData | ((context: any) => TData),
-  name?: string
+  options: NoInfer<StateOptions<TData>> = {}
 ): State<TData> => {
-  const id = generateName("state", name);
   return {
     type: "state",
-    name: id,
+    options: {
+      ...options,
+      name: generateName("state", options.name),
+    },
     model,
     initial,
   };

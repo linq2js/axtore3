@@ -12,14 +12,15 @@ const STALE_TIMER_PROP = Symbol("staleTimer");
 const createQueryResolver = <TContext, TMeta>(
   client: Client,
   query: Query,
-  contextFactory: CustomContextFactory<TContext>,
-  meta: TMeta
+  contextFactory: CustomContextFactory<TContext>
 ) => {
   return async (_: any, args: any, apolloContext: ApolloContext) => {
     args = unwrapVariables(args);
+
     if (query.options.parse) {
       args = query.options.parse(args);
     }
+
     const sm = getSessionManager(client, query.document, args);
     sm.query = query;
     clearTimeout(sm.data[STALE_TIMER_PROP]);
@@ -46,12 +47,12 @@ const createQueryResolver = <TContext, TMeta>(
       }
 
       const context = createContext(
+        query.model,
         {
           ...apolloContext,
           ...contextFactory(apolloContext),
         },
         session,
-        meta,
         false
       );
       const result = await handleLazyResult(

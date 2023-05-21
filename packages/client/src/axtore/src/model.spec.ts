@@ -1,10 +1,29 @@
 import { createModel } from "./createModel";
 import { cleanFetchMocking, createClient } from "./test";
 import { untilSubscriptionNotifyingDone, gql, typed, delay } from "./util";
+import { z } from "zod";
 
 cleanFetchMocking();
 
 describe("query", () => {
+  test("parsing args", async () => {
+    const parse = z.object({
+      value: z.coerce.number(),
+    }).parse;
+    const client = createClient();
+    const model = createModel().query(
+      "value",
+      ({}, args: ReturnType<typeof parse>) => {
+        return args.value;
+      },
+      { parse }
+    );
+    const data = await model.call(client, (x) =>
+      x.$value({ value: "2" } as any)
+    );
+    expect(data).toEqual({ value: 2 });
+  });
+
   test("field mapping", async () => {
     const client = createClient();
     const model = createModel()
@@ -475,4 +494,23 @@ describe("event", () => {
   });
 });
 
-describe("context", () => {});
+describe("context", () => {
+  test("cross models", () => {
+    const client = createClient();
+    const m1 = createModel()
+      .state("a", 1)
+      .state("b", 3)
+      .state("sum", ({ $a, $b }) => $a() + $b());
+    const m2 = createModel().state("b", 2);
+    const m3 = createModel()
+      .use({
+        ...m1.meta,
+        ...m2.meta,
+      })
+      .state("sum", ({ $a, $b }) => $a() + $b());
+    // expect $sum must be m1.$sum
+    expect(m1.call(client, (x) => x.$sum())).toBe(4);
+    // expect $sum must be m3.$sum
+    expect(m3.call(client, (x) => x.$sum())).toBe(3);
+  });
+});
