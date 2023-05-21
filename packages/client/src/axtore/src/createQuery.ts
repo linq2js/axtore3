@@ -7,7 +7,7 @@ const createQuery = <TVariables, TData>(
   name: string,
   document: DocumentNode,
   resolver?: RootResolver<any, TVariables, TData>,
-  options: QueryOptions = {}
+  options: QueryOptions<TVariables> = {}
 ): Query<TVariables, TData> => {
   return {
     type: "query",

@@ -7,7 +7,7 @@
     "dev": "lerna run dev",
     "build": "lerna run build",
     "genTypes": "npx graphql-codegen --config ./scripts/codegen.js",
-    "test": "jest"
+    "test": "jest --reporters jest-silent-reporter"
   },
   "npmClient": "yarn",
   "devDependencies": {
@@ -17,7 +17,8 @@
     "@graphql-codegen/fragment-matcher": "4.0.1",
     "@graphql-codegen/typescript": "3.0.2",
     "@graphql-codegen/typescript-operations": "3.0.2",
-    "@graphql-codegen/typescript-document-nodes": "3.0.2"
+    "@graphql-codegen/typescript-document-nodes": "3.0.2",
+    "jest-silent-reporter": "0.5.0"
   },
   "workspaces": [
     "packages/*"

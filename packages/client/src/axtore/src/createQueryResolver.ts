@@ -17,6 +17,9 @@ const createQueryResolver = <TContext, TMeta>(
 ) => {
   return async (_: any, args: any, apolloContext: ApolloContext) => {
     args = unwrapVariables(args);
+    if (query.options.parse) {
+      args = query.options.parse(args);
+    }
     const sm = getSessionManager(client, query.document, args);
     sm.query = query;
     clearTimeout(sm.data[STALE_TIMER_PROP]);

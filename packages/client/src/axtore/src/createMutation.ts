@@ -1,5 +1,5 @@
 import type { DocumentNode } from "graphql";
-import type { Model, Mutation, QueryOptions, RootResolver } from "./types";
+import type { Model, Mutation, MutationOptions, RootResolver } from "./types";
 import { wrapVariables } from "./util";
 
 const createMutation = <TContext, TMeta, TVariables, TData>(
@@ -7,7 +7,7 @@ const createMutation = <TContext, TMeta, TVariables, TData>(
   name: string,
   document: DocumentNode,
   resolver?: RootResolver<any, TVariables, TData>,
-  options: QueryOptions = {}
+  options: MutationOptions<TVariables> = {}
 ): Mutation<TVariables, TData> => {
   return {
     type: "mutation",

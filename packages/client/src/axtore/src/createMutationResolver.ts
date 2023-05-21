@@ -11,10 +11,16 @@ const createMutationResolver = <TContext, TMeta>(
   contextFactory: CustomContextFactory<TContext>,
   meta: TMeta
 ) => {
+  const data = {};
   return async (_: any, args: any, apolloContext: ApolloContext) => {
     args = unwrapVariables(args);
+    if (mutation.options.parse) {
+      args = mutation.options.parse(args);
+    }
+
     const sm = getSessionManager(client, false);
     sm.mutation = mutation;
+    sm.data = data;
 
     return concurrency(mutation, mutation.options, async () => {
       const session = sm.start();

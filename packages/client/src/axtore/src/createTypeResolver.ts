@@ -1,7 +1,13 @@
 import { createContext } from "./createContext";
 import { getSessionManager } from "./getSessionManager";
 import { handleLazyResult } from "./handleLazyResult";
-import { ApolloContext, Client, CustomContextFactory } from "./types";
+import { patchTypeIfPossible } from "./patchTypeIfPossible";
+import {
+  ApolloContext,
+  Client,
+  CustomContextFactory,
+  FieldOptions,
+} from "./types";
 import { unwrapVariables } from "./util";
 
 const createTypeResolver = <TContext, TMeta>(
@@ -11,8 +17,15 @@ const createTypeResolver = <TContext, TMeta>(
   contextFactory: CustomContextFactory<TContext>,
   meta: TMeta
 ) => {
+  const options = (resolver as any).options as FieldOptions;
+
   return async (parent: any, args: any, apolloContext: ApolloContext) => {
     args = unwrapVariables(args);
+
+    if (options.parse) {
+      args = options.parse(args);
+    }
+
     const sm = getSessionManager(client, false);
     const session = sm.start();
     const context = createContext(
@@ -34,6 +47,11 @@ const createTypeResolver = <TContext, TMeta>(
       rawResult
     );
     session.manager.onLoad.invokeAndClear();
+
+    if (options.type) {
+      return patchTypeIfPossible(result, options.type);
+    }
+
     return result;
   };
 };

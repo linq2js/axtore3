@@ -1,11 +1,6 @@
 import { DocumentNode, TypedQueryDocumentNode } from "graphql";
 
-import {
-  ApolloClient,
-  ApolloError,
-  ApolloQueryResult,
-  ObservableQuery,
-} from "@apollo/client";
+import { ApolloClient, ApolloError, ObservableQuery } from "@apollo/client";
 
 export type ObjectType =
   | "state"
@@ -50,7 +45,7 @@ export type Query<TVariables = any, TData = any> = {
   readonly document: DocumentNode;
   readonly resolver?: RootResolver<any, TVariables, TData>;
   readonly model: Model<any, any>;
-  readonly options: QueryOptions;
+  readonly options: QueryOptions<TVariables>;
   mergeOptions(options?: any): any;
 };
 
@@ -65,7 +60,7 @@ export type Mutation<TVariables = any, TData = any> = {
   readonly document: DocumentNode;
   readonly resolver?: RootResolver<any, TVariables, TData>;
   readonly model: Model<any, any>;
-  readonly options: QueryOptions;
+  readonly options: MutationOptions<TVariables>;
   mergeOptions(options?: any): any;
 };
 
@@ -195,6 +190,11 @@ export type MutationContext<TContext, TMeta> = ContextBase &
   InferCustomContext<TContext> &
   DispatcherMap<TMeta, { async: true; read: true; write: true }>;
 
+export type FieldOptions = {
+  type?: string;
+  parse?(raw: Record<string, any>): any;
+};
+
 export type FieldResolver<
   TContext,
   TValue = any,
@@ -213,7 +213,7 @@ export type RootResolver<TContext, TArgs = any, TResult = any> = (
 
 export type ConcurrencyOptions = { debounce?: number; throttle?: number };
 
-export type QueryOptions = {
+export type QueryOptions<TVariables = any> = {
   /**
    * specify type name of dynamic query's returned value
    */
@@ -229,13 +229,17 @@ export type QueryOptions = {
    */
   proactive?: boolean;
   stateTime?: number;
+
+  parse?(raw: Record<string, any>): TVariables;
 } & ConcurrencyOptions;
 
-export type MutationOptions = {
+export type MutationOptions<TVariables = any> = {
   /**
    * specify type name of dynamic mutation's returned value
    */
   type?: string;
+
+  parse?(raw: Record<string, any>): TVariables;
 } & ConcurrencyOptions;
 
 export type WithResolve<T extends (...args: any[]) => any> = {
@@ -403,7 +407,7 @@ export type Model<TContext = {}, TMeta = {}> = {
   query<TAlias extends string, TName extends string, TVariables, TData>(
     name: `${TAlias}:${TName}`,
     resolver: RootResolver<QueryContext<TContext, TMeta>, TVariables, TData>,
-    options?: QueryOptions
+    options?: NoInfer<QueryOptions<TVariables>>
   ): Model<
     TContext,
     AddProp<TMeta, TAlias, Query<TVariables, { [key in TAlias]: TData }>>
@@ -421,7 +425,7 @@ export type Model<TContext = {}, TMeta = {}> = {
   query<TName extends string, TVariables = void, TData = any>(
     name: TName,
     resolver: RootResolver<QueryContext<TContext, TMeta>, TVariables, TData>,
-    options?: QueryOptions
+    options?: NoInfer<QueryOptions<TVariables>>
   ): Model<
     TContext,
     AddProp<TMeta, TName, Query<TVariables, { [key in TName]: TData }>>
@@ -435,7 +439,7 @@ export type Model<TContext = {}, TMeta = {}> = {
   mutation<TName extends string, TVariables = any, TData = void>(
     name: TName,
     resolver: RootResolver<MutationContext<TContext, TMeta>, TVariables, TData>,
-    options?: MutationOptions
+    options?: NoInfer<MutationOptions<TVariables>>
   ): Model<
     TContext,
     AddProp<TMeta, TName, Mutation<TVariables, { [key in TName]: TData }>>
@@ -453,6 +457,10 @@ export type Model<TContext = {}, TMeta = {}> = {
       string,
       | FieldResolver<FieldContext<TContext, TMeta>, any, any, any>
       | [string, FieldResolver<FieldContext<TContext, TMeta>, any, any, any>]
+      | [
+          FieldOptions,
+          FieldResolver<FieldContext<TContext, TMeta>, any, any, any>
+        ]
     >
   >(
     type: TType,
@@ -607,7 +615,7 @@ export type SessionManager = {
    * this uses for query session only
    */
   readonly observableQuery: EnhancedObservableQuery;
-  readonly data: any;
+  data: any;
   start(): Session;
   dispose(): void;
   onLoad: CallbackGroup;

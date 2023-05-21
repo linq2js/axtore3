@@ -11,6 +11,7 @@ import type {
   Effect,
   MutationOptions,
   FieldMappings,
+  FieldOptions,
 } from "./types";
 import type { DocumentNode } from "graphql";
 import { isState, isMutation, isQuery, isEvent } from "./util";
@@ -21,7 +22,6 @@ import { createDynamicDocument } from "./createDynamicDocument";
 import { createQuery } from "./createQuery";
 import { createMutation } from "./createMutation";
 import { patchLocalFields } from "./patchLocalFields";
-import { patchTypeIfPossible } from "./patchTypeIfPossible";
 import { getSessionManager } from "./getSessionManager";
 import { createContext } from "./createContext";
 import { createEvent } from "./createEvent";
@@ -295,24 +295,27 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
         mergeDeep(meta, {
           // assign model
           [name]: Object.entries(resolvers).reduce((prev, [key, value]) => {
-            const [dataType, resolver] = Array.isArray(value)
+            const [typeOrOptions, resolver] = Array.isArray(value)
               ? value
               : [undefined, value];
+            const options: FieldOptions =
+              typeof typeOrOptions === "string"
+                ? { type: typeOrOptions }
+                : typeOrOptions ?? {};
 
             newFieldMappings[name] = {
               ...newFieldMappings[name],
-              [key]: { field: key, type: dataType },
+              [key]: { field: key, type: options.type },
             };
 
             const resolverWrapper = Object.assign(
-              async (...args: Parameters<FieldResolver<any, any>>) => {
-                const result = await resolver(...args);
-                return patchTypeIfPossible(result, dataType);
-              },
-              { dataType }
+              (...args: Parameters<FieldResolver<any, any>>) =>
+                resolver(...args),
+              { options }
             );
 
             resolverWrappers.push(resolverWrapper);
+
             return {
               ...prev,
               [key]: resolverWrapper,
