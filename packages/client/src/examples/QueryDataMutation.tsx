@@ -92,16 +92,12 @@ const App = () => {
     if (!titleRef.current?.value) return;
     const title = titleRef.current.value;
     titleRef.current.value = "";
-    add.mutate({ title });
+    add({ title });
   };
 
   return (
     <>
-      <blockquote>
-        This app demonstrates using `state`. A state is where to store sync
-        data, when the state is changed, its consumers will be notified
-        immediately as well.
-      </blockquote>
+      <blockquote>This app demonstrates mutating `query` data.</blockquote>
       <form onSubmit={handleSubmit}>
         <input ref={titleRef} type="text" placeholder="What need to be done?" />
       </form>
@@ -110,19 +106,19 @@ const App = () => {
         Filter{" "}
         <button
           style={{ fontWeight: filter === "all" ? "bold" : "normal" }}
-          onClick={() => applyFilter.mutate({ filter: "all" })}
+          onClick={() => applyFilter({ filter: "all" })}
         >
           All
         </button>
         <button
           style={{ fontWeight: filter === "scheduled" ? "bold" : "normal" }}
-          onClick={() => applyFilter.mutate({ filter: "scheduled" })}
+          onClick={() => applyFilter({ filter: "scheduled" })}
         >
           Scheduled
         </button>
         <button
           style={{ fontWeight: filter === "completed" ? "bold" : "normal" }}
-          onClick={() => applyFilter.mutate({ filter: "completed" })}
+          onClick={() => applyFilter({ filter: "completed" })}
         >
           Completed
         </button>
@@ -132,24 +128,31 @@ const App = () => {
           <p>
             <strong>List:</strong>
           </p>
-          <button onClick={() => clear.mutate()}>Clear</button>
+          <button onClick={() => clear()}>Clear</button>
           <p></p>
           {list.map((todo) => {
             return (
-              <p key={todo.id}>
+              <p
+                key={todo.id}
+                style={{
+                  opacity: filter === "all" && todo.completed ? 0.5 : 1,
+                }}
+              >
                 <input
                   type="text"
                   value={todo.title}
                   onChange={(e) =>
-                    rename.mutate({ id: todo.id, title: e.currentTarget.value })
+                    rename({ id: todo.id, title: e.currentTarget.value })
                   }
                 />
-                <button onClick={() => toggle.mutate({ id: todo.id })}>
-                  Toggle
+                <button onClick={() => toggle({ id: todo.id })}>
+                  {filter === "completed"
+                    ? "Scheduled"
+                    : filter === "scheduled"
+                    ? "Completed"
+                    : "Toggle"}
                 </button>
-                <button onClick={() => remove.mutate({ id: todo.id })}>
-                  Remove
-                </button>
+                <button onClick={() => remove({ id: todo.id })}>Remove</button>
               </p>
             );
           })}

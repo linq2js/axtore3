@@ -57,9 +57,7 @@ const FilterByText = () => {
     <p>
       <select
         value={term.searchIn}
-        onChange={(e) =>
-          changeTerm.mutate({ searchIn: e.currentTarget.value as any })
-        }
+        onChange={(e) => changeTerm({ searchIn: e.currentTarget.value as any })}
       >
         <option value="body">Body</option>
         <option value="title">Title</option>
@@ -67,7 +65,7 @@ const FilterByText = () => {
       <input
         type="text"
         value={term.text}
-        onChange={(e) => changeTerm.mutate({ text: e.currentTarget.value })}
+        onChange={(e) => changeTerm({ text: e.currentTarget.value })}
         placeholder="Enter search term"
       />
     </p>
@@ -83,7 +81,7 @@ const FilterByUser = () => {
       <select
         value={term.userId || 0}
         onChange={(e) =>
-          changeTerm.mutate({ userId: parseInt(e.currentTarget.value, 10) })
+          changeTerm({ userId: parseInt(e.currentTarget.value, 10) })
         }
       >
         <option value={0}>Any User</option>

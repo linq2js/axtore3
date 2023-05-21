@@ -41,7 +41,7 @@ describe("normal mutation", () => {
 
     // assert
     expect(result.current.data).toBeUndefined();
-    result.current.mutate({ value: 1 });
+    result.current({ value: 1 });
     await delay(20);
     expect(result.current.data).toEqual({ update: { result: 1 } });
   });

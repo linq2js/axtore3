@@ -56,28 +56,31 @@ const useMutation = <TVariables, TData>(
   resultRef.current = result;
 
   return useMemo(() => {
-    return {
-      get called() {
-        return resultRef.current.called;
-      },
-      get data() {
-        return resultRef.current.data;
-      },
-      get loading() {
-        return resultRef.current.loading;
-      },
-      get error() {
-        return resultRef.current.error;
-      },
+    const mutate = (...args: VariablesArgs<TVariables>) => {
+      const options = mutation.mergeOptions({ variables: args[0] });
+      return mutateRef.current(options);
+    };
+
+    Object.defineProperties(mutate, {
+      called: { get: () => resultRef.current.called },
+      data: { get: () => resultRef.current.data },
+      loading: { get: () => resultRef.current.loading },
+      error: { get: () => resultRef.current.error },
+    });
+
+    Object.assign(mutate, {
       reset() {
         return resultRef.current.reset();
       },
-      async mutate(...args: VariablesArgs<TVariables>) {
-        const options = mutation.mergeOptions({ variables: args[0] });
-        return mutateRef.current(options);
-      },
+    });
+
+    return mutate as typeof mutate & {
+      readonly called: boolean;
+      readonly loading: boolean;
+      readonly data?: TData | null;
+      readonly error?: ApolloError;
     };
-  }, [mutation]);
+  }, []);
 };
 
 export { useMutation };
