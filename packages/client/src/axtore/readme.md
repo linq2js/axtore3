@@ -55,13 +55,14 @@ $person((draft) => {
 
 Next, we will demonstrate how to use the Model in a component.
 
-Let create a new component called Counter, and use the countModel via the useModel API inside the component:
+Let's create a new component called Counter, and use the countModel via the generated hooks inside the component:
 
 ```ts
 import { hooks } from "@axon/axtore/react";
 import countModel from "./models/count";
 
-// useAdd and useCount hooks are created by hooks API, the hook name is following pattern `useXXX` where XXX is state/query/mutation/event name
+// useAdd and useCount hooks are created by hooks API,
+// the hook name is following pattern `useXXX` where XXX is state/query/mutation/event name
 const { useAdd, useCount } = hooks(countModel.meta);
 
 function Counter() {

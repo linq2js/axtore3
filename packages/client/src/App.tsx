@@ -9,8 +9,10 @@ import { App as ErrorHandling } from "./examples/ErrorHandling";
 import { App as LazyUpdating } from "./examples/LazyUpdating";
 import { App as DataStaling } from "./examples/DataStaling";
 import { App as AppFlow } from "./examples/AppFlow";
+import { App as InfiniteLoading } from "./examples/InfiniteLoading";
 
 const pages = {
+  InfiniteLoading,
   AppFlow,
   QueryDataMutation,
   DebouncingEffect,

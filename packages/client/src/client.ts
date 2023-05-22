@@ -25,6 +25,8 @@ const httpLink = new HttpLink({ uri: "http://localhost:4000/" });
 const link = from([errorLink, authorizationLink, restLink, httpLink]);
 const cache = new InMemoryCache();
 
+let photosPromise: Promise<any[]> | undefined;
+
 const client = new ApolloClient({
   cache,
   link,
@@ -42,6 +44,17 @@ const client = new ApolloClient({
             (!term.userId || x.userId === term.userId) &&
             (!term.text || x[term.searchIn]?.indexOf?.(term.text) !== -1)
         );
+      },
+      async paginatedPhotos(_, { page, size }: { page: number; size: number }) {
+        console.log("load photos", { page, size });
+        if (!photosPromise) {
+          photosPromise = fetch(
+            "https://jsonplaceholder.typicode.com/photos"
+          ).then((res) => res.json());
+        }
+        await delay(500);
+        const photos = await photosPromise;
+        return photos.slice(page * size, (page + 1) * size);
       },
     },
   },
