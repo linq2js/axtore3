@@ -1,8 +1,4 @@
-import type {
-  ApolloError,
-  ObservableQuery,
-  OperationVariables,
-} from "@apollo/client";
+import type { ApolloError } from "@apollo/client";
 import { useQuery as apolloUseQuery, useApolloClient } from "@apollo/client";
 import type {
   Client,
@@ -64,6 +60,7 @@ const useQuery = <TVariables, TData>(
     ...mergedOptions,
     ...stableOptions,
   };
+
   const result = apolloUseQuery<TData, any>(query.document, queryOptions);
   const resultRef = useRef(result);
   resultRef.current = result;
@@ -104,10 +101,7 @@ const useQuery = <TVariables, TData>(
         if (resultRef.current.error) {
           throw resultRef.current.error;
         }
-        if (
-          resultRef.current.loading ||
-          isLoading(resultRef.current.observable)
-        ) {
+        if (resultRef.current.loading) {
           wait(client, query, customOptions.variables);
         }
 
@@ -115,13 +109,6 @@ const useQuery = <TVariables, TData>(
       },
     };
   })[0];
-};
-
-const isLoading = <TVariables extends OperationVariables>(
-  observableQuery: ObservableQuery<any, TVariables>
-) => {
-  const result = observableQuery.getCurrentResult();
-  return result.loading || result.networkStatus === 4;
 };
 
 const wait = (client: Client, query: Query, variables: any) => {

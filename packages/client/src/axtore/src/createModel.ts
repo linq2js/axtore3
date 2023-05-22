@@ -14,7 +14,14 @@ import type {
   FieldOptions,
 } from "./types";
 import type { DocumentNode } from "graphql";
-import { isState, isMutation, isQuery, isEvent } from "./util";
+import {
+  isState,
+  isMutation,
+  isQuery,
+  isEvent,
+  isPromiseLike,
+  createProp,
+} from "./util";
 
 import { mergeDeep } from "@apollo/client/utilities";
 import { createState } from "./createState";
@@ -29,6 +36,8 @@ import { generateName } from "./generateName";
 import { createQueryResolver } from "./createQueryResolver";
 import { createMutationResolver } from "./createMutationResolver";
 import { createFieldResolver } from "./createFieldResolver";
+
+const EXECUTED_EFFECTS_PROP = Symbol("executedEffects");
 
 const createModel: CreateModel = (options = {}) => {
   return createModelInternal(options);
@@ -146,9 +155,18 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
 
     // execute effects
     if (effects.length) {
+      const executedEffects = createProp(
+        client,
+        EXECUTED_EFFECTS_PROP,
+        () => new Set<Function>()
+      );
+
       call(client, (context: any) => {
-        // make sure do not run an effect twice
-        new Set(effects).forEach((effect) => effect(context));
+        effects.forEach((effect) => {
+          if (executedEffects.has(effect)) return;
+          executedEffects.add(effect);
+          effect(context);
+        });
       });
     }
   };
@@ -271,8 +289,31 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
     state(name, initial, options) {
       return extend(name, createState(model, initial, options));
     },
-    effect(...newEffects) {
-      effects.push(...newEffects);
+    effect(fn, continuous) {
+      if (continuous) {
+        if (typeof continuous !== "string") {
+          continuous = "always";
+        }
+
+        const originFn = fn;
+        fn = (context) => {
+          const result = originFn(context);
+
+          if (isPromiseLike(result)) {
+            if (continuous === "always") {
+              return result.finally(() => fn(context));
+            }
+            return result.then(() => fn(context));
+          }
+          if (process.env.NODE_ENV !== "production") {
+            console.warn(
+              "The continuous effect must return promise like object"
+            );
+          }
+          return result;
+        };
+      }
+      effects.push(fn);
       return model;
     },
     type(name, resolvers) {

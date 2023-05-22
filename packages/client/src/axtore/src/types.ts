@@ -516,7 +516,10 @@ export type Model<TContext = {}, TMeta extends MetaBase = {}> = {
     resolvers: TResolvers
   ): Model<TContext, AddProp<TMeta, TType, TResolvers>>;
 
-  effect(...fn: Effect<TContext, TMeta>[]): Model<TContext, TMeta>;
+  effect(
+    fn: Effect<TContext, TMeta>,
+    continuous?: true | "always" | "success"
+  ): Model<TContext, TMeta>;
 
   init(client: Client): void;
 

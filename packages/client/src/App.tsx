@@ -8,8 +8,10 @@ import { App as EventHandling } from "./examples/EventHandling";
 import { App as ErrorHandling } from "./examples/ErrorHandling";
 import { App as LazyUpdating } from "./examples/LazyUpdating";
 import { App as DataStaling } from "./examples/DataStaling";
+import { App as AppFlow } from "./examples/AppFlow";
 
 const pages = {
+  AppFlow,
   QueryDataMutation,
   DebouncingEffect,
   EventHandling,
