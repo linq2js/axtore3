@@ -19,6 +19,7 @@ export type UseQueryOptions<TData> = {
   onError?: (error: ApolloError) => void;
   onDone?: VoidFunction;
   context?: any;
+  client?: Client;
 };
 
 export type Wait<T> = {
@@ -32,9 +33,14 @@ const useQuery = <TVariables, TData>(
     VariablesOptions<TVariables, UseQueryOptions<TData> | undefined>
   >
 ) => {
-  const { onCompleted, onError, onDone, ...customOptions } =
-    (args[0] as WithVariables<TVariables, UseQueryOptions<TData>>) ?? {};
-  const client = useApolloClient();
+  const {
+    client: customClient,
+    onCompleted,
+    onError,
+    onDone,
+    ...customOptions
+  } = (args[0] as WithVariables<TVariables, UseQueryOptions<TData>>) ?? {};
+  const client = useApolloClient(customClient);
   query.model.init(client);
   const mergedOptions = query.mergeOptions(customOptions);
   const stableOptions = useStable({
@@ -59,6 +65,7 @@ const useQuery = <TVariables, TData>(
     notifyOnNetworkStatusChange: true,
     ...mergedOptions,
     ...stableOptions,
+    client,
   };
 
   const result = apolloUseQuery<TData, any>(query.document, queryOptions);

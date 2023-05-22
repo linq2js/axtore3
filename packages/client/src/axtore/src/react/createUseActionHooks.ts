@@ -1,10 +1,13 @@
 import { useApolloClient } from "@apollo/client";
 import { useMemo } from "react";
 import { useStable } from ".";
-import { MetaBase, Model, ModelAction } from "../types";
+import { Client, MetaBase, Model, ModelAction } from "../types";
 
 const createUseActionHooks =
-  <TContext, TMeta extends MetaBase>({ call }: Model<TContext, TMeta>) =>
+  <TContext, TMeta extends MetaBase>(
+    { call }: Model<TContext, TMeta>,
+    customClient?: Client
+  ) =>
   <TActions extends Record<string, ModelAction<TContext, TMeta, any[], any>>>(
     actions: TActions
   ): {
@@ -17,7 +20,7 @@ const createUseActionHooks =
       ? (...args: TArgs) => TResult
       : never;
   } => {
-    const client = useApolloClient();
+    const client = useApolloClient(customClient);
     const actionWrappers = useMemo(() => {
       return Object.keys(actions).reduce((prev, key) => {
         return {

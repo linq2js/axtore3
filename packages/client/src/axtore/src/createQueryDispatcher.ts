@@ -7,7 +7,7 @@ import { getSessionManager } from "./getSessionManager";
 import { patchTypeIfPossible } from "./patchTypeIfPossible";
 import { refetchAllQueries } from "./refetchAllQueries";
 import type { Client, Query, Session } from "./types";
-import { handleFetchResult, untilSubscriptionNotifyingDone } from "./util";
+import { handleFetchResult, nextUpdate } from "./util";
 
 const createQueryDispatcher = <TVariables, TData>(
   client: Client,
@@ -108,7 +108,7 @@ const createQueryDispatcher = <TVariables, TData>(
           overwrite: true,
         });
 
-        await untilSubscriptionNotifyingDone();
+        await nextUpdate();
       },
     }
   );

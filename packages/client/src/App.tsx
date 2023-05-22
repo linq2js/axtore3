@@ -10,6 +10,7 @@ import { App as LazyUpdating } from "./examples/LazyUpdating";
 import { App as DataStaling } from "./examples/DataStaling";
 import { App as AppFlow } from "./examples/AppFlow";
 import { App as InfiniteLoading } from "./examples/InfiniteLoading";
+import { App as LocalModel } from "./examples/LocalModel";
 
 const pages = {
   InfiniteLoading,
@@ -20,6 +21,7 @@ const pages = {
   ErrorHandling,
   LazyUpdating,
   DataStaling,
+  LocalModel,
 } as Record<string, FC>;
 
 const pageNames = Object.keys(pages);

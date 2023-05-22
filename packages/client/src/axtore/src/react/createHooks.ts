@@ -8,6 +8,7 @@ import type {
   Model,
   Event,
   RemovePrivateProps,
+  Client,
 } from "../types";
 import { useQuery } from "./useQuery";
 import { useMutation } from "./useMutation";
@@ -15,12 +16,12 @@ import { createUseActionHooks } from "./createUseActionHooks";
 import { isState, isMutation, isQuery, isEvent, isModel } from "../util";
 import {
   useApolloClient,
-  useReactiveVar as reactiveVarHook,
+  useReactiveVar as useReactiveVar,
 } from "@apollo/client";
 import { useMemo } from "react";
 import { useEvent } from "./useEvent";
 
-type InferHook<T> = T extends Model<infer TContext, infer TMeta>
+export type InferHook<T> = T extends Model<infer TContext, infer TMeta>
   ? ReturnType<typeof createUseActionHooks<TContext, TMeta>>
   : T extends Query<infer TVariables, infer TData>
   ? SkipFirstArg<typeof useQuery<TVariables, TData>>
@@ -29,10 +30,10 @@ type InferHook<T> = T extends Model<infer TContext, infer TMeta>
   : T extends Event<infer TArgs>
   ? SkipFirstArg<typeof useEvent<TArgs>>
   : T extends State<infer TData>
-  ? SkipFirstArg<typeof reactiveVarHook<TData>>
+  ? (options?: { client?: Client }) => TData
   : never;
 
-type InferHooks<TMeta, TPrefix extends string = ""> = NormalizeProps<
+export type InferHooks<TMeta, TPrefix extends string = ""> = NormalizeProps<
   {
     [key in `use${TPrefix}${Capitalize<keyof TMeta & string>}`]: InferHook<
       TMeta[Uncapitalize<RemovePrefix<`use${TPrefix}`, key>> & keyof TMeta]
@@ -40,28 +41,38 @@ type InferHooks<TMeta, TPrefix extends string = ""> = NormalizeProps<
   } & { [key in `use${TPrefix}Init`]: VoidFunction }
 >;
 
+export type CreateHookOptions = {
+  client?: Client;
+};
+
 export type CreateHooks = {
-  <TMeta>(meta: TMeta): InferHooks<RemovePrivateProps<TMeta>>;
+  <TMeta>(meta: TMeta, options?: CreateHookOptions): InferHooks<
+    RemovePrivateProps<TMeta>
+  >;
   <TMeta, TPrefix extends string>(
     meta: TMeta,
-    options: { prefix: TPrefix }
+    options: { prefix: TPrefix } & CreateHookOptions
   ): InferHooks<RemovePrivateProps<TMeta>, TPrefix>;
 };
 
-const createHooks: CreateHooks = (meta: any, options?: any) => {
-  const { prefix = "" } = options ?? {};
+const createHooks: CreateHooks = (
+  meta: any,
+  options: CreateHookOptions & { prefix?: string } = {}
+) => {
+  const { prefix = "", client: defaultClient } = options;
   const result: any = {};
   const entries = Object.entries(meta);
   const models = new Set<Model>();
   const groupId = Symbol("hooks");
 
-  const useInit = () => {
-    const client = useApolloClient();
+  const useInit = (override?: Client) => {
+    const client = useApolloClient(override ?? defaultClient);
     // we use symbol to mark whether the group is connected or not
     if (!(client as any)[groupId]) {
       (client as any)[groupId] = true;
       models.forEach((model) => model.init(client));
     }
+    return client;
   };
 
   entries.forEach(([key, value]) => {
@@ -71,35 +82,34 @@ const createHooks: CreateHooks = (meta: any, options?: any) => {
 
     if (isQuery(value)) {
       models.add(value.model);
-      hook = (...args: any[]) => {
-        useInit();
-        return (useQuery as Function)(value, ...args);
+      hook = (options: any) => {
+        const client = useInit(options?.client);
+        return useQuery(value, { client, ...options });
       };
     } else if (isMutation(value)) {
       models.add(value.model);
-      hook = (...args: any[]) => {
-        useInit();
-        return useMutation(value, ...args);
+      hook = (options: any) => {
+        const client = useInit(options?.client);
+        return useMutation(value, { client, ...options });
       };
     } else if (isState(value)) {
       models.add(value.model);
-      hook = (...args: any[]) => {
-        useInit();
-        const client = useApolloClient();
+      hook = (options: any) => {
+        const client = useInit(options?.client);
         const rv = useMemo(() => {
           return value.model.call(client, (x) => (x as any)["$" + key].rv);
         }, [client]);
-        return (reactiveVarHook as Function)(rv, ...args);
+        return useReactiveVar(rv);
       };
     } else if (isEvent(value)) {
       models.add(value.model);
-      hook = (...args: any[]) => {
-        useInit();
-        return useEvent(value, ...args);
+      hook = (options: any) => {
+        const client = useInit(options?.client);
+        return useEvent(value, { client, ...options });
       };
     } else if (isModel(value)) {
       models.add(value);
-      hook = createUseActionHooks(value);
+      hook = createUseActionHooks(value, defaultClient);
     }
 
     if (hook) {

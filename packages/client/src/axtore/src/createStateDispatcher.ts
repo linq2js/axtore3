@@ -6,7 +6,7 @@ import { getUpdatedData } from "./getUpdatedData";
 import type { ApolloContext, Session, State } from "./types";
 import { createProp } from "./util";
 
-const strictEqual = (a: any, b: any) => a === b;
+const strictEqual = Object.is;
 
 const createState = (state: State, originalContext: ApolloContext) => {
   return createProp(

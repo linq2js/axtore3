@@ -1,6 +1,6 @@
 import { createModel } from "./createModel";
 import { cleanFetchMocking, createClient } from "./test";
-import { untilSubscriptionNotifyingDone, gql, typed, delay } from "./util";
+import { nextUpdate, gql, typed, delay } from "./util";
 import { z } from "zod";
 
 cleanFetchMocking();
@@ -116,10 +116,10 @@ describe("query", () => {
       });
     const d1 = await model.call(client, ({ $doubledCount }) => $doubledCount());
     await model.call(client, ({ $count }) => $count.refetch());
-    await untilSubscriptionNotifyingDone();
+    await nextUpdate();
     const d2 = await model.call(client, ({ $doubledCount }) => $doubledCount());
     await model.call(client, ({ $count }) => $count.refetch());
-    await untilSubscriptionNotifyingDone();
+    await nextUpdate();
     const d3 = await model.call(client, ({ $doubledCount }) => $doubledCount());
     expect(d1).toEqual({ doubledCount: 2 });
     expect(d2).toEqual({ doubledCount: 4 });
@@ -166,7 +166,7 @@ describe("query", () => {
       $count.set((prev) => {
         prev.count++;
       });
-      await untilSubscriptionNotifyingDone();
+      await nextUpdate();
       return $count();
     });
 
@@ -376,7 +376,7 @@ describe("event", () => {
       x.$clicked().then(fired);
     });
     model.call(client, (x) => x.$clicked.fire());
-    await untilSubscriptionNotifyingDone();
+    await nextUpdate();
     expect(fired).toBeCalled();
   });
 
@@ -394,7 +394,7 @@ describe("event", () => {
       await $clicked.fire(4);
       await $clicked.fire(8);
     });
-    await untilSubscriptionNotifyingDone();
+    await nextUpdate();
     expect(sum).toBe(15);
   });
 
@@ -447,7 +447,7 @@ describe("event", () => {
     await model.call(client, ({ $a }) => $a.fire(1));
     expect(values).toEqual([]);
     await model.call(client, ({ $b }) => $b.fire(true));
-    await untilSubscriptionNotifyingDone();
+    await nextUpdate();
     expect(values).toEqual([1, true]);
   });
 
@@ -486,10 +486,10 @@ describe("event", () => {
     });
 
     await model.call(client, ({ $a }) => $a.fire(1));
-    await untilSubscriptionNotifyingDone();
+    await nextUpdate();
     expect(result).toBe(1);
     await model.call(client, ({ $b }) => $b.fire(true));
-    await untilSubscriptionNotifyingDone();
+    await nextUpdate();
     expect(result).toBe(1);
   });
 });

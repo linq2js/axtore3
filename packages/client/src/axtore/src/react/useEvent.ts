@@ -1,12 +1,13 @@
 import { useApolloClient } from "@apollo/client";
 import { useEffect, useMemo, useState } from "react";
 import { getEvent } from "../getEvent";
-import { Event, EventDispatcher, NoInfer } from "../types";
+import { Client, Event, EventDispatcher, NoInfer } from "../types";
 import { useStable } from "./useStable";
 
 export type UseEventOptions<TArgs> = {
   onFire?(args: TArgs): void;
   autoBind?: boolean;
+  client?: Client;
 };
 
 export type EventDispatcherWrapper<TArgs> = Pick<
@@ -19,7 +20,7 @@ const useEvent = <TArgs>(
   event: Event<TArgs>,
   options: NoInfer<UseEventOptions<TArgs>> = {}
 ) => {
-  const client = useApolloClient();
+  const client = useApolloClient(options.client);
   const dispatcher = useMemo(() => getEvent(client, event), [event, client]);
   const { onFire } = useStable(options);
   const rerender = useState<any>()[1];

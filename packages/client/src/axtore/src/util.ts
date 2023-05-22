@@ -201,7 +201,7 @@ const gql = <TVariables = any, TData = any>(
   ...args: Parameters<typeof originalGql>
 ) => originalGql(...args) as TypedQueryDocumentNode<TData, TVariables>;
 
-const untilSubscriptionNotifyingDone = () => delay(0);
+const nextUpdate = () => delay(0);
 
 const isWrappedVariables = (variables: any) =>
   variables &&
@@ -259,7 +259,7 @@ export {
   forEach,
   gql,
   typed,
-  untilSubscriptionNotifyingDone,
+  nextUpdate,
   wrapVariables,
   unwrapVariables,
   handleFetchResult,

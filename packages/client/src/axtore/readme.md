@@ -55,7 +55,26 @@ $person((draft) => {
 
 Next, we will demonstrate how to use the Model in a component.
 
-Let's create a new component called Counter, and use the countModel via the generated hooks inside the component:
+We need to setup an Apollo client first
+
+```ts
+import { ApolloClient, InMemoryCache, ApolloProvider } from "@apollo/client";
+
+const client = new ApolloClient({
+  cache: new InMemoryCache(),
+  ...otherConfigs,
+});
+
+const App = () => {
+  return (
+    <ApolloProvider client={client}>
+      <Counter /> // will define this component later
+    </ApolloProvider>
+  );
+};
+```
+
+Let's create a Counter component and use the countModel via the generated hooks:
 
 ```ts
 import { hooks } from "@axon/axtore/react";
@@ -76,4 +95,61 @@ function Counter() {
     </div>
   );
 }
+```
+
+## Define a model
+
+In the previous section, we demonstrated how to create a Model for a simple counter application. In this section, we will provide a detailed introduction on how to create a Model.
+
+```ts
+import { model, gql } from "@axon/axtore";
+
+const appModel = model()
+  // define `count` state and set to 1
+  .state("count", 1)
+  // define computed state, when `count` state changed, `doubledCount` state re-computes as well
+  .state("doubledCount", (context) => {
+    // destructure `count` accessor from the context
+    const { $count } = context;
+    // return doubled value
+    return $count() * 2;
+  })
+  .state("filter", "all" as "all" | "completed" | "active")
+  .query(
+    // define a graphql query
+    "todoList",
+    // using gql function to create strong typed query document
+    gql<
+      // variables type
+      { page: number; limit: number },
+      // result type
+      { todos: Todo[] }
+    >`
+      query GetTodoList($page: Int, limit: Int) {
+        todos(page: $page, limit: $limit) {
+          id
+          title
+        }
+      }
+    `
+  )
+  .query("filteredTodos", async (context) => {
+    // destructure todoList query accessor from the context
+    const { $todoList, $filter } = context;
+    // get filter value
+    const filter = $filter();
+    // call todoList query and wait for the result
+    const { todos } = await $todoList();
+
+    // filteredTodos query consumes `filter` state and `todoList` query data, whenever these changed, filteredTodos also does re-computing
+
+    return filter === "completed"
+      ? // filter completed todos
+        todos.filter((x) => x.completed)
+      : filter === "active"
+      ? // filter active todos
+        todos.filter((x) => !x.completed)
+      : // all todos
+        todos;
+  });
 ```

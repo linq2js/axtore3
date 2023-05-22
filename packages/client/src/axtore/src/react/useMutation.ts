@@ -3,7 +3,7 @@ import {
   useMutation as apolloUseMutation,
   useApolloClient,
 } from "@apollo/client";
-import type { Mutation, NoInfer, VariablesArgs } from "../types";
+import type { Client, Mutation, NoInfer, VariablesArgs } from "../types";
 import { useMemo, useRef } from "react";
 
 import { useStable } from "./useStable";
@@ -12,6 +12,7 @@ export type UseMutationOptions<TData> = {
   onCompleted?: NoInfer<(data: TData) => void>;
   onError?: (error: ApolloError) => void;
   onDone?: VoidFunction;
+  client?: Client;
   fetchPolicy?: MutationHookOptions["fetchPolicy"];
 };
 
@@ -19,8 +20,14 @@ const useMutation = <TVariables, TData>(
   mutation: Mutation<TVariables, TData>,
   options: UseMutationOptions<TData> = {}
 ) => {
-  const { onCompleted, onError, onDone, ...customOptions } = options;
-  const client = useApolloClient();
+  const {
+    client: customClient,
+    onCompleted,
+    onError,
+    onDone,
+    ...customOptions
+  } = options;
+  const client = useApolloClient(customClient);
   mutation.model.init(client);
   const mergedOptions = mutation.mergeOptions(customOptions);
   const stableOptions = useStable({
@@ -46,6 +53,7 @@ const useMutation = <TVariables, TData>(
     {
       ...mergedOptions,
       ...stableOptions,
+      client,
     }
   );
 
