@@ -20,7 +20,7 @@ const createContext = (
   session: Session,
   updatable: boolean
 ) => {
-  let lastData = EMPTY;
+  let lastData: any = EMPTY;
   const use = (extras: Function, ...args: any[]) => {
     return extras(contextProxy, ...args);
   };
@@ -41,9 +41,16 @@ const createContext = (
 
         if (p === "lastData") {
           if (lastData === EMPTY) {
-            lastData = session.manager.query
-              ? session.manager.observableQuery.getLastResult()?.data
-              : undefined;
+            if (session.manager.query) {
+              console.log(session.manager.query.alias);
+              lastData =
+                session.manager.observableQuery.getLastResult()?.data?.[
+                  session.manager.query.alias
+                ];
+            } else {
+              lastData = undefined;
+            }
+            console.log(lastData);
           }
           return lastData;
         }

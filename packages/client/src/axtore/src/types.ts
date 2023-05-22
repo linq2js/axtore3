@@ -42,6 +42,7 @@ export type EventDispatcher<TArgs> = {
 export type Query<TVariables = any, TData = any> = {
   readonly type: "query";
   readonly name: string;
+  readonly alias: string;
   readonly document: DocumentNode;
   readonly resolver?: RootResolver<any, TVariables, TData>;
   readonly model: Model<any, any>;
@@ -57,6 +58,7 @@ export type OperationEvents<TVariables, TData> = {
 export type Mutation<TVariables = any, TData = any> = {
   readonly type: "mutation";
   readonly name: string;
+  readonly alias: string;
   readonly document: DocumentNode;
   readonly resolver?: RootResolver<any, TVariables, TData>;
   readonly model: Model<any, any>;

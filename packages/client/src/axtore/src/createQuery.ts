@@ -5,6 +5,7 @@ import { wrapVariables } from "./util";
 const createQuery = <TVariables, TData>(
   model: Model<any, any>,
   name: string,
+  alias: string,
   document: DocumentNode,
   resolver?: RootResolver<any, TVariables, TData>,
   options: QueryOptions<TVariables> = {}
@@ -12,6 +13,7 @@ const createQuery = <TVariables, TData>(
   return {
     type: "query",
     name,
+    alias,
     model,
     document,
     resolver,

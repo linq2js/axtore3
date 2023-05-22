@@ -252,7 +252,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
       const { type } = options ?? {};
       return extend(
         alias,
-        createQuery(model, name, document, resolver, options),
+        createQuery(model, name, alias, document, resolver, options),
         newFieldMappings
       );
     },
@@ -282,7 +282,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
       }
       return extend(
         alias,
-        createMutation(model, name, document, resolver),
+        createMutation(model, name, alias, document, resolver),
         fieldMappings
       );
     },

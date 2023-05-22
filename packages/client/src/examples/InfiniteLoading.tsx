@@ -12,6 +12,11 @@ export type Photo = {
   thumbnailUrl: string;
 };
 
+export type PaginatedPhotos = {
+  items: Photo[];
+  hasMore: boolean;
+};
+
 const appModel = model()
   .state("filter", { page: 0, size: 5 } satisfies Filter)
   .query(
@@ -30,17 +35,22 @@ const appModel = model()
     `
   )
   .query(
+    // the query data has following structure: { photos: ReturnType<QueryFn> }
     "photos",
-    async ({ $_paginatedPhotos, $filter, lastData }) => {
+    async ({
+      $_paginatedPhotos,
+      $filter,
+      lastData,
+    }): Promise<PaginatedPhotos> => {
       // get current pagination info
       // this query is reactive, when `filter` state changed it also re-fetches
       const filter = $filter();
       const isFirstPage = filter.page === 0;
       // the idea is we append new items to last data whenever the query called
       // user might jump to first page so we need to reset loadedItems to empty
-      const loadedPhotos = (
-        isFirstPage ? [] : lastData?.photos.items ?? []
-      ) as Photo[];
+      const loadedPhotos = isFirstPage
+        ? []
+        : (lastData as PaginatedPhotos | undefined)?.items ?? [];
       const { paginatedPhotos } = await $_paginatedPhotos({
         page: filter.page,
         size: filter.size,

@@ -7,6 +7,7 @@ import type {
   Lazy,
   Event,
   Model,
+  MetaBase,
 } from "./types";
 import { gql as originalGql } from "graphql-tag";
 import type {
@@ -37,7 +38,7 @@ const isQuery = <TVariables = any, TData = any>(
   return getType(obj) === "query";
 };
 
-const isModel = <TContext = any, TMeta = any>(
+const isModel = <TContext = any, TMeta extends MetaBase = any>(
   obj: any
 ): obj is Model<TContext, TMeta> => {
   return getType(obj) === "model";
