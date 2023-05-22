@@ -39,13 +39,17 @@ const appModel = model()
       // the idea is we append new items to last data whenever the query called
       // user might jump to first page so we need to reset loadedItems to empty
       const loadedPhotos = (
-        isFirstPage ? [] : lastData?.photos ?? []
+        isFirstPage ? [] : lastData?.photos.items ?? []
       ) as Photo[];
       const { paginatedPhotos } = await $_paginatedPhotos({
         page: filter.page,
         size: filter.size,
       });
-      return loadedPhotos.concat(paginatedPhotos);
+
+      return {
+        items: loadedPhotos.concat(paginatedPhotos),
+        hasMore: paginatedPhotos.length >= filter.size,
+      };
     },
     // use hardRefetch option to notify loading status to UI components
     { hardRefetch: true }
@@ -89,11 +93,11 @@ const App = () => {
         <input ref={pageSizeRef} type="text" defaultValue={filter.size} />
         <p></p>
       </form>
-      {data?.photos.map((photo) => (
+      {data?.photos.items.map((photo) => (
         <pre key={photo.id}>{JSON.stringify(photo)}</pre>
       ))}
       <button
-        disabled={loading}
+        disabled={loading || !data?.photos.hasMore}
         onClick={() => applyFilter({ page: filter.page + 1 })}
       >
         {loading ? "Loading..." : "More"}

@@ -54,7 +54,12 @@ const client = new ApolloClient({
         }
         await delay(500);
         const photos = await photosPromise;
-        return photos.slice(page * size, (page + 1) * size);
+        return (
+          photos
+            // limit to 100 items for testing
+            .slice(0, 100)
+            .slice(page * size, (page + 1) * size)
+        );
       },
     },
   },
