@@ -29,18 +29,23 @@ const useEvent = <TArgs>(
   }, [dispatcher, onFire, options.autoBind, rerender]);
 
   return useMemo(() => {
-    return {
-      ...dispatcher,
-      get paused() {
-        return dispatcher.paused();
-      },
-      get last() {
-        return dispatcher.last();
-      },
-      get fired() {
-        return dispatcher.fired();
-      },
+    const fire = (...args: any[]) => {
+      return (dispatcher.fire as Function)(...args);
     };
+
+    Object.defineProperties(fire, {
+      paused: { get: dispatcher.paused },
+      last: { get: dispatcher.last },
+      fired: { get: dispatcher.fired },
+    });
+
+    Object.assign(fire, dispatcher);
+
+    return fire as unknown as Omit<
+      typeof dispatcher,
+      "paused" | "last" | "fired" | "fire"
+    > &
+      (typeof dispatcher)["fire"];
   }, [dispatcher]);
 };
 

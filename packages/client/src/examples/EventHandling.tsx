@@ -125,7 +125,7 @@ const LoginPage = () => {
   const { handleSubmit } = useStable({
     handleSubmit(e: FormEvent) {
       e.preventDefault();
-      login.fire({ userId: parseInt(inputRef.current?.value ?? "", 10) });
+      login({ userId: parseInt(inputRef.current?.value ?? "", 10) });
     },
   });
 
@@ -212,7 +212,7 @@ const DashboardPage = () => {
         <Link type={"posts"} currentType={page} onClick={setPage}>
           Posts
         </Link>
-        <span onClick={() => logout.fire()}>Logout</span>
+        <span onClick={() => logout()}>Logout</span>
       </p>
       <Suspense fallback="Loading...">
         {page === "profile" && <ProfilePage />}

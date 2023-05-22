@@ -64,7 +64,7 @@ const App = () => {
       <button onClick={() => setShowInner(!showInner)}>
         Toggle Inner Module
       </button>
-      <button onClick={() => logout.fire()}>Logout</button>
+      <button onClick={() => logout()}>Logout</button>
       {showInner && <InnerPage />}
     </>
   );
