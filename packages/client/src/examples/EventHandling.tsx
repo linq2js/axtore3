@@ -36,17 +36,18 @@ export type Album = {
 };
 
 // a base model contains custom context definition and common states or events
-const baseModel = model({ context: { rest } })
+const baseModel = model()
+  .use({ rest })
   .event("login", typed<{ userId: number }>)
   .event("logout")
   .state("user", undefined as User | undefined);
 
 // post model inherits from base model that means it can access all base model components
 const postModel = baseModel
-  .query("posts", ({ $user, rest }) => {
+  .query("posts", ({ $user, $rest }) => {
     const user = $user();
     if (!user) return [] as Post[];
-    return rest<Post[]>("/posts", { params: { userId: user.id } });
+    return $rest<Post[]>("/posts", { params: { userId: user.id } });
   })
   .effect(({ $logout }) => {
     console.log("post module loaded");
@@ -57,10 +58,10 @@ const postModel = baseModel
   });
 
 const taskModel = baseModel
-  .query("tasks", ({ $user, rest }) => {
+  .query("tasks", ({ $user, $rest }) => {
     const user = $user();
     if (!user) return [] as Task[];
-    return rest<Task[]>("/todos", { params: { userId: user.id } });
+    return $rest<Task[]>("/todos", { params: { userId: user.id } });
   })
   .effect(({ $logout }) => {
     console.log("task module loaded");
@@ -71,10 +72,10 @@ const taskModel = baseModel
   });
 
 const albumModel = baseModel
-  .query("albums", ({ $user, rest }) => {
+  .query("albums", ({ $user, $rest }) => {
     const user = $user();
     if (!user) return [] as Album[];
-    return rest<Album[]>("/albums", { params: { userId: user.id } });
+    return $rest<Album[]>("/albums", { params: { userId: user.id } });
   })
   .effect(({ $logout }) => {
     console.log("album module loaded");
@@ -85,14 +86,14 @@ const albumModel = baseModel
   });
 
 const appModel = baseModel.effect(
-  async ({ $login, $logout, $user, rest, delay }) => {
+  async ({ $login, $logout, $user, $rest, delay }) => {
     console.log("appModel loaded");
 
     // login and logout flow
     while (true) {
       const { userId } = await $login();
 
-      const user = await rest<User>(`/users/${userId}`);
+      const user = await $rest<User>(`/users/${userId}`);
 
       await delay(500);
 
@@ -189,7 +190,7 @@ const AlbumsPage = () => {
 };
 
 const DashboardPage = () => {
-  // sometimes we want to preload some specified modules
+  // sometimes we want to init some modules beforehand
   useInitTaskModule();
 
   const logout = useLogout();

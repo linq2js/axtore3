@@ -1,10 +1,10 @@
 import { useApolloClient } from "@apollo/client";
 import { useMemo } from "react";
 import { useStable } from ".";
-import { Model, ModelAction } from "../types";
+import { MetaBase, Model, ModelAction } from "../types";
 
 const createUseActionHooks =
-  <TContext, TMeta>({ call }: Model<TContext, TMeta>) =>
+  <TContext, TMeta extends MetaBase>({ call }: Model<TContext, TMeta>) =>
   <TActions extends Record<string, ModelAction<TContext, TMeta, any[], any>>>(
     actions: TActions
   ): {

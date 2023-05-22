@@ -1,7 +1,7 @@
 import { generateName } from "./generateName";
-import type { Model, NoInfer, State, StateOptions } from "./types";
+import type { MetaBase, Model, NoInfer, State, StateOptions } from "./types";
 
-const createState = <TContext, TMeta, TData>(
+const createState = <TContext, TMeta extends MetaBase, TData>(
   model: Model<TContext, TMeta>,
   initial: TData | ((context: any) => TData),
   options: NoInfer<StateOptions<TData>> = {}

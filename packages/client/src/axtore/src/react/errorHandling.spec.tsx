@@ -18,8 +18,9 @@ const HTTP_ERROR = "Only absolute URLs are supported";
 
 cleanFetchMocking();
 
-const model = createModel({ context: { rest } })
-  .query("http", ({ rest }) => rest("invalidPath"))
+const model = createModel()
+  .use({ rest })
+  .query("http", ({ $rest }) => $rest("invalidPath"))
   .query("hasError", async ({ $http }, args: { type: "query" | "http" }) => {
     if (args.type === "http") {
       return $http();

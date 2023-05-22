@@ -6,9 +6,10 @@ import { FormEvent, useRef } from "react";
 type Todo = { id: string; title: string; completed: boolean };
 type TodoFilter = "all" | "completed" | "scheduled";
 
-const appModel = model({ context: { rest } })
+const appModel = model()
+  .use({ rest })
   // fetch data from server
-  .query("list", async ({ rest }) => rest<Todo[]>("/todos?userId=1"))
+  .query("list", async ({ $rest }) => $rest<Todo[]>("/todos?userId=1"))
   .state("filter", "all" as TodoFilter)
   .query("filteredList", async ({ $filter, $list }) => {
     const { list } = await $list();
@@ -37,6 +38,7 @@ const appModel = model({ context: { rest } })
     // mutate data of $list query and $filterList also react
     $list.set(({ list }) => {
       const todo = list.find((x) => x.id === args.id);
+
       if (todo) {
         todo.title = args.title;
       }

@@ -1,8 +1,14 @@
 import type { DocumentNode } from "graphql";
-import type { Model, Mutation, MutationOptions, RootResolver } from "./types";
+import type {
+  MetaBase,
+  Model,
+  Mutation,
+  MutationOptions,
+  RootResolver,
+} from "./types";
 import { wrapVariables } from "./util";
 
-const createMutation = <TContext, TMeta, TVariables, TData>(
+const createMutation = <TContext, TMeta extends MetaBase, TVariables, TData>(
   model: Model<TContext, TMeta>,
   name: string,
   document: DocumentNode,

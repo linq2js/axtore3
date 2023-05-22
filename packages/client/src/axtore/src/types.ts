@@ -161,33 +161,24 @@ export type InferArrayType<T> = T extends Array<infer I> ? I : any;
 
 export type CancellablePromise<T> = Promise<T> & { cancel(): void };
 
-export type InferCustomContext<TContext> = {
-  [key in keyof TContext]: TContext[key] extends {
-    (context: ContextBase): (...args: any[]) => any;
-    type: "dispatcher";
-  }
-    ? ReturnType<TContext[key]>
-    : TContext[key];
-};
-
 export type QueryContext<TContext, TMeta> = ContextBase &
-  InferCustomContext<TContext> &
+  TContext &
   DispatcherMap<TMeta, { async: true; read: true }> & {
     readonly lazy: LazyFactory;
   };
 
 export type FieldContext<TContext, TMeta> = ContextBase &
-  InferCustomContext<TContext> &
+  TContext &
   DispatcherMap<TMeta, { async: true; read: true }> & {
     readonly lazy: LazyFactory;
   };
 
 export type StateContext<TContext, TMeta> = Omit<ContextBase, "lastData"> &
-  InferCustomContext<TContext> &
+  TContext &
   DispatcherMap<TMeta, { read: true }>;
 
 export type MutationContext<TContext, TMeta> = ContextBase &
-  InferCustomContext<TContext> &
+  TContext &
   DispatcherMap<TMeta, { async: true; read: true; write: true }>;
 
 export type FieldOptions = {
@@ -201,7 +192,7 @@ export type FieldResolver<
   TArgs = any,
   TResult = any
 > = (
-  context: ApolloContext & InferCustomContext<TContext>,
+  context: ApolloContext & TContext,
   args: TArgs,
   value: TValue
 ) => TResult | Promise<TResult> | Lazy<TResult>;
@@ -335,8 +326,18 @@ export type QueryDispatcher<
 
         /**
          * change query data
-         * @param dataOrRecipe
+         * @param dataOrRecipe if argument is function, we use immer to mutate query data with that recipe function, otherwise we set the query to new one.
+         * In case of using update recipe, nothing to update if the query data has not been fetched yet
          * @param args
+         * ```js
+         * // let say we have the query `myQuery`  returns the data `{ total: number, items: Todo[] }`
+         * // we must provide whole data object when updating the query
+         * $myQuery.set({  total: 100, items: [{id: 1}, {id: 2}] })
+         * // or we use update recipe to modify partial query data
+         * $myQuery.set(draft => {
+         *  draft.total = 100;
+         * })
+         * ```
          */
         set(
           dataOrRecipe: UpdateRecipe<TData>,
@@ -354,6 +355,8 @@ export type InferDispatcher<
   T
 > = T extends State<infer TData>
   ? StateDispatcher<TScopes, TData>
+  : T extends (...args: any[]) => any
+  ? ReturnType<T>
   : TScopes extends { async: true }
   ? T extends Query<infer TVariables, infer TData>
     ? QueryDispatcher<TScopes, TVariables, TData>
@@ -396,13 +399,28 @@ export type Field = FieldResolver<any, any, any, any> & {
   options: FieldOptions;
 };
 
-export type Model<TContext = {}, TMeta = {}> = {
+export type CustomDispatcher<TArgs extends any[] = any[], TResult = any> = (
+  context: ContextBase
+) => (...args: TArgs) => TResult;
+
+export type MetaBase = {
+  [key: string]:
+    | State
+    | Query
+    | Mutation
+    | CustomDispatcher
+    | Record<string, Function>;
+};
+
+export type Model<TContext = {}, TMeta extends MetaBase = {}> = {
   readonly __type: "model";
   readonly id: Symbol;
   readonly meta: TMeta;
   readonly effects: Effect<TContext, TMeta>[];
 
-  use<TOtherMeta>(meta: TOtherMeta): Model<TContext, TMeta & TOtherMeta>;
+  use<TOtherMeta extends MetaBase>(
+    meta: TOtherMeta
+  ): Model<TContext, TMeta & TOtherMeta>;
 
   query<TName extends string, TData, TVariables>(
     name: TName,

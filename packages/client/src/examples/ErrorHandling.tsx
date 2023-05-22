@@ -9,8 +9,9 @@ type ErrorType = "query" | "http";
 type ErrorHandlingMethod = "event" | "boundary" | "result";
 type ErrorArgs = { type: ErrorType };
 
-const appModel = model({ context: { rest } })
-  .query("http", ({ rest }) => rest("@@@"))
+const appModel = model()
+  .use({ rest })
+  .query("http", ({ $rest }) => $rest("@@@"))
   .query("hasError", async ({ $http }, args: ErrorArgs) => {
     console.log("querying");
     await delay(1000);

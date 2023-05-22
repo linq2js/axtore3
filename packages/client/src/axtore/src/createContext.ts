@@ -110,16 +110,14 @@ const createContext = (
             resolvedProps.set(p, dispatcher);
             return dispatcher;
           }
-        }
 
-        if (p in originalContext) {
-          let value = (originalContext as any)[p];
-          if (
-            typeof value === "function" &&
-            (value as any).type === "dispatcher"
-          ) {
-            value = value(contextProxy);
+          if (typeof value === "function") {
+            const dispatcher = value(contextProxy);
+            resolvedProps.set(p, dispatcher);
+            return dispatcher;
           }
+        } else if (p in originalContext) {
+          let value = (originalContext as any)[p];
           resolvedProps.set(p, value);
           return value;
         }

@@ -71,8 +71,8 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
     let hasNewResolver = false;
 
     Object.entries(meta).forEach(([typeName, value]) => {
-      // do nothing with state
-      if (isState(value)) {
+      // do nothing with state or dispatcher
+      if (isState(value) || isEvent(value) || typeof value === "function") {
         return;
       }
 
@@ -114,11 +114,6 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
             ),
           },
         };
-        return;
-      }
-
-      if (isEvent(value)) {
-        // do nothing
         return;
       }
 

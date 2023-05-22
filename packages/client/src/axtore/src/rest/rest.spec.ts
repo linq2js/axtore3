@@ -12,23 +12,28 @@ type PostValueData = { postValue: { result: string } };
 
 cleanFetchMocking();
 
-const model = createModel({ context: { rest } })
-  .query("getValue", ({ rest }) => rest<{ result: string }>("get", "/value"))
-  .query("getValue1", ({ rest }) =>
-    rest<{ result: string }>("get", "/value", { type: "v1" })
+const model = createModel()
+  .use({ rest })
+  .query("getValue", ({ $rest }) => $rest<{ result: string }>("get", "/value"))
+  .query("getValue1", ({ $rest }) =>
+    $rest<{ result: string }>("get", "/value", { type: "v1" })
   )
-  .query("getValue2", ({ rest }) =>
-    rest<{ result: string }>("get", "/value", { type: "v2" })
+  .query("getValue2", ({ $rest }) =>
+    $rest<{ result: string }>("get", "/value", { type: "v2" })
   )
-  .query("getValue3", ({ rest }) => rest<{ result: string }>("get", "/value"))
-  .query("doubledValue", async ({ rest }, args: { value: number }) => {
-    const { result } = await rest<{ result: number }>("post", "/doubledValue", {
-      body: args,
-    });
+  .query("getValue3", ({ $rest }) => $rest<{ result: string }>("get", "/value"))
+  .query("doubledValue", async ({ $rest }, args: { value: number }) => {
+    const { result } = await $rest<{ result: number }>(
+      "post",
+      "/doubledValue",
+      {
+        body: args,
+      }
+    );
     return result * 2;
   })
-  .mutation("postValue", ({ rest }, args: PostValueArgs) =>
-    rest<PostValueData>("post", "/postValue", { body: args })
+  .mutation("postValue", ({ $rest }, args: PostValueArgs) =>
+    $rest<PostValueData>("post", "/postValue", { body: args })
   );
 
 describe("query", () => {
