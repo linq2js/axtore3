@@ -42,7 +42,6 @@ const createContext = (
         if (p === "lastData") {
           if (lastData === EMPTY) {
             if (session.manager.query) {
-              console.log(session.manager.query.alias);
               lastData =
                 session.manager.observableQuery.getLastResult()?.data?.[
                   session.manager.query.alias
@@ -50,7 +49,6 @@ const createContext = (
             } else {
               lastData = undefined;
             }
-            console.log(lastData);
           }
           return lastData;
         }
@@ -68,14 +66,14 @@ const createContext = (
               originalContext.client,
               value,
               session,
-              value.model === model
-                ? contextProxy
-                : createContext(
+              value.model !== model
+                ? createContext(
                     value.model,
-                    originalContext,
+                    value.model.createContext(originalContext),
                     session,
                     updatable
                   )
+                : contextProxy
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;
@@ -85,14 +83,14 @@ const createContext = (
             const dispatcher = createMutationDispatcher(
               originalContext.client,
               value,
-              value.model === model
-                ? contextProxy
-                : createContext(
+              value.model !== model
+                ? createContext(
                     value.model,
-                    originalContext,
+                    value.model.createContext(originalContext),
                     session,
                     updatable
                   )
+                : contextProxy
             );
             resolvedProps.set(p, dispatcher);
             return dispatcher;
@@ -109,7 +107,9 @@ const createContext = (
 
           if (isState(value)) {
             const dispatcher = createStateDispatcher(
-              originalContext,
+              value.model !== model
+                ? value.model.createContext(originalContext)
+                : originalContext,
               value,
               session,
               updatable

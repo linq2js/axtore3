@@ -82,6 +82,10 @@ export type CustomContextFactory<TContext> = (
 ) => TContext;
 
 export type ModelOptions<TContext = {}> = {
+  /**
+   * use for debugging purpose
+   */
+  name?: string;
   context?: TContext | CustomContextFactory<TContext>;
   prefix?: string;
 };
@@ -419,6 +423,7 @@ export type Model<TContext = {}, TMeta extends MetaBase = {}> = {
   readonly id: Symbol;
   readonly meta: TMeta;
   readonly effects: Effect<TContext, TMeta>[];
+  createContext(apolloContext: ApolloContext): TContext;
 
   use<TOtherMeta extends MetaBase>(
     meta: TOtherMeta

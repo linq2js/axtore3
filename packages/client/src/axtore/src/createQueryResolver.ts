@@ -60,7 +60,7 @@ const createQueryResolver = <TContext, TMeta>(
         session,
         "query",
         () => query.mergeOptions({ variables: args }),
-        query.name,
+        query.alias,
         await query.resolver?.(context, args)
       );
 

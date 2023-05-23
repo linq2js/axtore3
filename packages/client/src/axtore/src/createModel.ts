@@ -51,21 +51,19 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
 ): Model<TContext, TMeta> => {
   effects = effects.slice();
   const id = Symbol("model");
-  let cachedContext: TContext | undefined;
 
   const contextFactory: CustomContextFactory<TContext> = (
     apolloContext: ApolloContext
   ) => {
-    if (!cachedContext) {
-      if (typeof modelOptions.context === "function") {
-        cachedContext = (
-          modelOptions.context as CustomContextFactory<TContext>
-        )(apolloContext);
-      } else {
-        cachedContext = { ...modelOptions.context } as TContext;
-      }
+    if (typeof modelOptions.context === "function") {
+      return {
+        ...apolloContext,
+        ...(modelOptions.context as CustomContextFactory<TContext>)(
+          apolloContext
+        ),
+      };
     }
-    return cachedContext;
+    return { ...apolloContext, ...modelOptions.context } as TContext;
   };
 
   const init = (client: Client) => {
@@ -211,6 +209,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
     id,
     meta,
     effects,
+    createContext: contextFactory,
     init,
     use(newMeta) {
       return createModelInternal(
@@ -227,7 +226,10 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
       );
     },
     query(selection: string, ...args: any[]) {
-      const [alias, name = alias] = selection.split(":");
+      const [
+        alias,
+        name = `${modelOptions.name ?? ""}_${alias}` + generateName("query"),
+      ] = selection.split(":");
       let document: DocumentNode;
       let resolver: RootResolver<TContext, any, any> | undefined;
       let options: QueryOptions | undefined;
@@ -257,7 +259,10 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
       );
     },
     mutation(selection: string, ...args: any[]) {
-      const [alias, name = alias] = selection.split(":");
+      const [
+        alias,
+        name = `${modelOptions.name ?? ""}_${alias}` + generateName("mutation"),
+      ] = selection.split(":");
       let options: MutationOptions | undefined;
       let newFieldMappings: FieldMappings | undefined;
 
