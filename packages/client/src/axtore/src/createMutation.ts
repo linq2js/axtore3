@@ -17,7 +17,7 @@ const createMutation = <TContext, TMeta extends MetaBase, TVariables, TData>(
   options: MutationOptions<TVariables> = {}
 ): Mutation<TVariables, TData> => {
   return {
-    type: "mutation",
+    __type: "mutation",
     name,
     alias,
     model,

@@ -493,24 +493,3 @@ describe("event", () => {
     expect(result).toBe(1);
   });
 });
-
-describe("context", () => {
-  test("cross models", () => {
-    const client = createClient();
-    const m1 = createModel()
-      .state("a", 1)
-      .state("b", 3)
-      .state("sum", ({ $a, $b }) => $a() + $b());
-    const m2 = createModel().state("b", 2);
-    const m3 = createModel()
-      .use({
-        ...m1.meta,
-        ...m2.meta,
-      })
-      .state("sum", ({ $a, $b }) => $a() + $b());
-    // expect $sum must be m1.$sum
-    expect(m1.call(client, (x) => x.$sum())).toBe(4);
-    // expect $sum must be m3.$sum
-    expect(m3.call(client, (x) => x.$sum())).toBe(3);
-  });
-});

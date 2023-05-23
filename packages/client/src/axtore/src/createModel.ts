@@ -209,6 +209,7 @@ const createModelInternal = <TContext, TMeta extends Record<string, any>>(
     id,
     meta,
     effects,
+    name: modelOptions.name,
     createContext: contextFactory,
     init,
     use(newMeta) {

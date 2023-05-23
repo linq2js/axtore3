@@ -5,7 +5,7 @@ const createEvent = <TData>(
   name: string
 ): Event<TData> => {
   return {
-    type: "event",
+    __type: "event" as const,
     name,
     model,
   };

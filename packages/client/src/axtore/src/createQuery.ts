@@ -11,7 +11,7 @@ const createQuery = <TVariables, TData>(
   options: QueryOptions<TVariables> = {}
 ): Query<TVariables, TData> => {
   return {
-    type: "query",
+    __type: "query",
     name,
     alias,
     model,

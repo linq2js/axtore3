@@ -18,7 +18,7 @@ export type NoInfer<T> = [T][T extends any ? 0 : never];
 export type Client<TCacheShape = any> = ApolloClient<TCacheShape>;
 
 export type Event<TArgs = any> = {
-  readonly type: "event";
+  readonly __type: "event";
   readonly name: string;
   readonly model: Model<any, any>;
 };
@@ -40,7 +40,7 @@ export type EventDispatcher<TArgs> = {
 };
 
 export type Query<TVariables = any, TData = any> = {
-  readonly type: "query";
+  readonly __type: "query";
   readonly name: string;
   readonly alias: string;
   readonly document: DocumentNode;
@@ -56,7 +56,7 @@ export type OperationEvents<TVariables, TData> = {
 };
 
 export type Mutation<TVariables = any, TData = any> = {
-  readonly type: "mutation";
+  readonly __type: "mutation";
   readonly name: string;
   readonly alias: string;
   readonly document: DocumentNode;
@@ -64,11 +64,6 @@ export type Mutation<TVariables = any, TData = any> = {
   readonly model: Model<any, any>;
   readonly options: MutationOptions<TVariables>;
   mergeOptions(options?: any): any;
-};
-
-export type TypeResolverSet<TResolvers = any> = {
-  readonly type: "type";
-  readonly resolvers: TResolvers;
 };
 
 export type AddProp<TModel, TProp extends string, TValue> = TModel & {
@@ -384,10 +379,10 @@ export type DispatcherMap<
 }>;
 
 export type State<TData = any> = {
-  type: "state";
-  model: Model<any, any>;
-  options: StateOptions<TData>;
-  initial: TData | ((context: any) => TData);
+  readonly __type: "state";
+  readonly model: Model<any, any>;
+  readonly options: StateOptions<TData>;
+  readonly initial: TData | ((context: any) => TData);
 };
 
 export type Effect<TContext = {}, TMeta = {}> = (
@@ -420,6 +415,7 @@ export type MetaBase = {
 
 export type Model<TContext = {}, TMeta extends MetaBase = {}> = {
   readonly __type: "model";
+  readonly name: string | undefined;
   readonly id: Symbol;
   readonly meta: TMeta;
   readonly effects: Effect<TContext, TMeta>[];
@@ -579,7 +575,7 @@ export type LoadableSource<T = any> = {
 };
 
 export type Loadable<T = any> = {
-  readonly type: "loadable";
+  readonly __type: "loadable";
   readonly data: T | undefined;
   readonly promise: Promise<T>;
   readonly loading: boolean;
@@ -702,7 +698,7 @@ export type QueryInfo = {
 };
 
 export type Lazy<T = any> = {
-  readonly type: "lazy";
+  readonly __type: "lazy";
   readonly options: LazyOptions;
   data: () => T | Promise<T>;
   loader(): T | Promise<T>;

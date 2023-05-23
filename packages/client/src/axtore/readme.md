@@ -102,7 +102,7 @@ function Counter() {
 In the previous section, we demonstrated how to create a Model for a simple counter application. In this section, we will provide a detailed introduction on how to create a Model.
 
 ```ts
-import { model, gql } from "@axon/axtore";
+import { model, gql, typed } from "@axon/axtore";
 
 const appModel = model()
   // define `count` state and set to 1
@@ -114,9 +114,10 @@ const appModel = model()
     // return doubled value
     return $count() * 2;
   })
+  .event("dataReady")
   .state("filter", "all" as "all" | "completed" | "active")
+  // define a graphql query
   .query(
-    // define a graphql query
     "todoList",
     // using gql function to create strong typed query document
     gql<
@@ -133,6 +134,9 @@ const appModel = model()
       }
     `
   )
+  // define dynamic query, a dynamic query receives a function that will be executed when the query calls
+  // the query data has following structure { queryName: functionResult }
+  // ex: the below query has data: { filteredTodos: Todo[] }
   .query("filteredTodos", async (context) => {
     // destructure todoList query accessor from the context
     const { $todoList, $filter } = context;
@@ -151,5 +155,59 @@ const appModel = model()
         todos.filter((x) => !x.completed)
       : // all todos
         todos;
+  })
+  // if filteredTodos is heavy query, we want to preload it beforehand, just put the preloading logic into effect
+  .effect(async ({ $filteredTodos, $dataReady }) => {
+    await $filteredTodos();
+    // we can also fire event and other model can listen it
+    $dataReady.fire();
+  });
+
+// define derived model
+const subModel = appModel
+  .effect(({ $dataReady }) => {
+    // the derived model can access all definitions from its parent
+    // listen `dataReady` event
+    $dataReady.on(() => {
+      console.log("Do something once data ready");
+    });
+  })
+  // we can define strong typed event
+  .event("profileLoaded", typed<UserProfile>)
+  .effect(async ({ $profileLoaded }) => {
+    // we can call event accessor to get event dispatching promise. The promise will be resolved when the event fires
+    // unlikely `eventAccessor.on()`, this happens only once
+    const profile = await $profileLoaded();
   });
 ```
+
+## API References
+
+### **model() function**
+
+#### **Import**
+
+```ts
+import { model } from "@axon/axtore";
+```
+
+#### **Signature**
+
+```ts
+type model = <TContext, TMeta>(
+  options?: ModelOptions<TContext>
+) => Model<TContext, TMeta>;
+```
+
+##### **Input**
+
+- `options`:
+  - `name`: use for debugging purpose
+
+##### **Return Value**
+
+A [Model](#model-object) object
+
+##### **Examples**
+
+### **Model object**

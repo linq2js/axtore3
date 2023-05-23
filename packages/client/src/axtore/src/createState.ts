@@ -7,7 +7,7 @@ const createState = <TContext, TMeta extends MetaBase, TData>(
   options: NoInfer<StateOptions<TData>> = {}
 ): State<TData> => {
   return {
-    type: "state",
+    __type: "state",
     options: {
       ...options,
       name: generateName("state", options.name),

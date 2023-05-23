@@ -27,7 +27,7 @@ const EMPTY = Symbol("empty");
 const enqueue = Promise.resolve().then.bind(Promise.resolve());
 
 const getType = (obj: any): ObjectType | "unknown" => {
-  const type = String(obj?.type || obj?.__type) as ObjectType;
+  const type = String(obj?.__type) as ObjectType;
   if (!type) return "unknown";
   return type;
 };

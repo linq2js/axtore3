@@ -45,7 +45,7 @@ const createLoadableSource: CreateLoadableSource = (
         });
 
       loadable = {
-        type: "loadable" as const,
+        __type: "loadable" as const,
         loading: true,
         error: undefined,
         data: undefined,
